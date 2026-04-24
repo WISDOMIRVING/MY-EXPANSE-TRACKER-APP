@@ -1,22 +1,19 @@
-// Sovereign Ledger — Add Transaction Screen
-import React, { useState, useRef } from 'react';
+// Sovereign Ledger — Pixel Perfect Add Transaction Screen
+import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  ScrollView, TextInput, Animated, Keyboard, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, StatusBar, Alert, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius } from '../theme/spacing';
+import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { useAppContext } from '../context/AppContext';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../components/CategoryIcon';
 import CustomKeypad from '../components/CustomKeypad';
-import TabSelector from '../components/TabSelector';
-import ToggleSwitch from '../components/ToggleSwitch';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, getCategoryIcon, getCategoryColor } from '../components/CategoryIcon';
 import dayjs from 'dayjs';
 
-const TIMEFRAME_TABS = [
+const TIMEFRAMES = [
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
@@ -24,466 +21,203 @@ const TIMEFRAME_TABS = [
 
 const AddTransactionScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const { addTransaction, currency } = useAppContext();
-  const initialType = route?.params?.type || 'expense';
+  const { colors, currency, dispatch, ACTIONS, validateTransaction, themeMode } = useAppContext();
+  const initialType = route.params?.type || 'expense';
+  const categories = initialType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  const [type, setType] = useState(initialType);
   const [amount, setAmount] = useState('0.00');
-  const [selectedCategory, setSelectedCategory] = useState(
-    initialType === 'income' ? 'Salary' : 'Food'
-  );
-  const [notes, setNotes] = useState('');
-  const [date, setDate] = useState(dayjs().format('MM/DD/YYYY'));
+  const [category, setCategory] = useState(categories[0]);
+  const [timeframe, setTimeframe] = useState('weekly');
   const [isRecurring, setIsRecurring] = useState(false);
-  const [recurringInterval, setRecurringInterval] = useState('monthly');
-  const [thresholdAlert, setThresholdAlert] = useState(false);
+  const [thresholdAlert, setThresholdAlert] = useState(true);
+  const [notes, setNotes] = useState('');
   const [showKeypad, setShowKeypad] = useState(false);
-  const [step, setStep] = useState(1); // 1 = amount + category, 2 = details
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-
-  const handleKeyPress = (key) => {
-    setAmount((prev) => {
-      if (prev === '0.00' || prev === '0') {
-        if (key === '.') return '0.';
-        return key;
-      }
-      if (key === '.' && prev.includes('.')) return prev;
-      if (prev.includes('.') && prev.split('.')[1].length >= 2) return prev;
-      return prev + key;
-    });
-  };
-
-  const handleDelete = () => {
-    setAmount((prev) => {
-      if (prev.length <= 1) return '0.00';
-      return prev.slice(0, -1);
-    });
-  };
-
-  const handleContinue = () => {
-    if (parseFloat(amount) <= 0) return;
-    setShowKeypad(false);
-    setStep(2);
-  };
-
-  const handleSaveTransaction = () => {
-    const parsedAmount = parseFloat(amount);
-    if (parsedAmount <= 0) return;
-
-    addTransaction({
-      type,
-      amount: parsedAmount,
-      category: selectedCategory,
-      description: notes || selectedCategory,
-      date: dayjs(date, 'MM/DD/YYYY').isValid()
-        ? dayjs(date, 'MM/DD/YYYY').toISOString()
-        : dayjs().toISOString(),
+  const handleSave = () => {
+    const transactionData = {
+      type: initialType,
+      amount: parseFloat(amount),
+      category,
+      description: notes || category,
+      date: new Date().toISOString(),
       isRecurring,
-      recurringInterval: isRecurring ? recurringInterval : null,
-    });
+      recurringInterval: timeframe,
+    };
 
+    const error = validateTransaction(transactionData);
+    if (error) {
+      Alert.alert('Incomplete Data', error);
+      return;
+    }
+
+    dispatch({ type: ACTIONS.ADD_TRANSACTION, payload: transactionData });
     navigation.goBack();
   };
 
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    surface: { backgroundColor: colors.surface, borderColor: colors.border },
+    textPrimary: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    input: { backgroundColor: colors.surface, borderColor: colors.border, color: colors.textPrimary },
+  };
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-
-      {/* Header */}
+    <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => {
-            if (step === 2) {
-              setStep(1);
-            } else {
-              navigation.goBack();
-            }
-          }}
-        >
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>ADD TRANSACTION</Text>
-        <View style={{ width: 40 }} />
+        <Text style={[styles.headerTitle, dynamicStyles.textPrimary]}>New {initialType === 'income' ? 'Income' : 'Allocation'}</Text>
+        <View style={{ width: 28 }} />
       </View>
 
-      {/* Type Toggle */}
-      <View style={styles.typeToggle}>
-        <TouchableOpacity
-          style={[styles.typeBtn, type === 'expense' && styles.typeBtnActive]}
-          onPress={() => {
-            setType('expense');
-            setSelectedCategory('Food');
-          }}
-        >
-          <Text style={[styles.typeBtnText, type === 'expense' && styles.typeBtnTextActive]}>
-            Expense
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.typeBtn, type === 'income' && styles.incomeActive]}
-          onPress={() => {
-            setType('income');
-            setSelectedCategory('Salary');
-          }}
-        >
-          <Text style={[styles.typeBtnText, type === 'income' && styles.typeBtnTextActive]}>
-            Income
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {step === 1 ? (
-        <View style={styles.stepOne}>
-          {/* Amount Display */}
-          <TouchableOpacity
-            style={styles.amountDisplay}
-            onPress={() => setShowKeypad(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.currencySymbol}>{currency.symbol}</Text>
-            <Text style={styles.amountText}>{amount}</Text>
-          </TouchableOpacity>
-
-          {!showKeypad && (
-            <>
-              {/* Category Selection */}
-              <View style={styles.categoryGrid}>
-                {categories.map((cat) => {
-                  const isSelected = selectedCategory === cat;
-                  const iconName = getCategoryIcon(cat);
-                  const iconColor = getCategoryColor(cat);
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
-                      onPress={() => setSelectedCategory(cat)}
-                    >
-                      <View style={[styles.categoryIconContainer, { backgroundColor: `${iconColor}20` }]}>
-                        <Ionicons name={iconName} size={22} color={iconColor} />
-                      </View>
-                      <Text style={[styles.categoryLabel, isSelected && styles.categoryLabelSelected]}>
-                        {cat}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TouchableOpacity
-                style={[styles.continueBtn, parseFloat(amount) <= 0 && styles.continueBtnDisabled]}
-                onPress={() => {
-                  if (parseFloat(amount) > 0) {
-                    setStep(2);
-                  } else {
-                    setShowKeypad(true);
-                  }
-                }}
-              >
-                <Text style={styles.continueBtnText}>Continue</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {showKeypad && (
-            <View style={styles.keypadSection}>
-              <CustomKeypad onKeyPress={handleKeyPress} onDelete={handleDelete} />
-              <TouchableOpacity
-                style={[styles.continueBtn, parseFloat(amount) <= 0 && styles.continueBtnDisabled]}
-                onPress={handleContinue}
-                disabled={parseFloat(amount) <= 0}
-              >
-                <Text style={styles.continueBtnText}>Continue</Text>
-              </TouchableOpacity>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {/* Amount Display */}
+        <TouchableOpacity style={[styles.amountCard, dynamicStyles.surface]} onPress={() => setShowKeypad(true)}>
+          <View style={styles.amountHeader}>
+            <Text style={[styles.amountLabel, dynamicStyles.textSecondary]}>AMOUNT</Text>
+            <View style={[styles.currencyBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.currencyText}>{currency.code}</Text>
             </View>
-          )}
+          </View>
+          <Text style={[styles.amountDisplay, { color: colors.primary }]}>
+            {currency.symbol} <Text style={styles.amountMain}>{amount}</Text>
+          </Text>
+        </TouchableOpacity>
+
+        {/* Category Grid */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, dynamicStyles.textSecondary]}>CATEGORY</Text>
+          <View style={styles.categoryGrid}>
+            {categories.map((cat) => (
+              <TouchableOpacity key={cat} style={[styles.categoryBtn, dynamicStyles.surface, category === cat && { backgroundColor: colors.primaryFaded, borderColor: colors.primary }]} onPress={() => setCategory(cat)}>
+                <View style={[styles.categoryIcon, { backgroundColor: category === cat ? colors.primary : colors.border }]}>
+                  <Ionicons name="grid-outline" size={16} color={category === cat ? '#FFF' : colors.textMuted} />
+                </View>
+                <Text style={[styles.categoryText, dynamicStyles.textPrimary, category === cat && { color: colors.primary }]}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      ) : (
-        <ScrollView
-          style={styles.stepTwo}
-          contentContainerStyle={styles.stepTwoContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Selected Amount & Category Summary */}
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryAmount}>
-              {currency.symbol}{amount}
-            </Text>
-            <Text style={styles.summaryCategory}>{selectedCategory}</Text>
+
+        {/* Timeframe Selector */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, dynamicStyles.textSecondary]}>TIMEFRAME</Text>
+          <View style={[styles.tabContainer, dynamicStyles.surface]}>
+            {TIMEFRAMES.map((tf) => (
+              <TouchableOpacity key={tf.value} style={[styles.tab, timeframe === tf.value && { backgroundColor: colors.primaryFaded, borderRadius: 8 }]} onPress={() => setTimeframe(tf.value)}>
+                <Text style={[styles.tabText, dynamicStyles.textSecondary, timeframe === tf.value && { color: colors.primary, fontFamily: FontFamily.bold }]}>{tf.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Date Picker (Static Placeholder matching Figma) */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, dynamicStyles.textSecondary]}>DATE</Text>
+          <View style={[styles.datePicker, dynamicStyles.surface]}>
+            <Ionicons name="calendar-outline" size={20} color={colors.textMuted} />
+            <Text style={[styles.dateText, dynamicStyles.textPrimary]}>{dayjs().format('MM/DD/YYYY')}</Text>
+          </View>
+        </View>
+
+        {/* Options */}
+        <View style={styles.optionsSection}>
+          <View style={[styles.optionRow, dynamicStyles.surface]}>
+            <View style={styles.optionLeft}>
+              <Ionicons name="repeat-outline" size={22} color={colors.textSecondary} />
+              <Text style={[styles.optionText, dynamicStyles.textPrimary]}>Recurring Transaction</Text>
+            </View>
+            <TouchableOpacity onPress={() => setIsRecurring(!isRecurring)}>
+              <View style={[styles.switchTrack, { backgroundColor: isRecurring ? colors.primary : colors.toggleInactive }]}>
+                <View style={[styles.switchThumb, isRecurring && { alignSelf: 'flex-end' }]} />
+              </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Timeframe */}
-          <Text style={styles.fieldLabel}>Timeframe</Text>
-          <TabSelector
-            tabs={TIMEFRAME_TABS}
-            activeTab={recurringInterval}
-            onTabChange={setRecurringInterval}
-            style={styles.timeframeTabs}
-          />
+          <View style={[styles.optionRow, dynamicStyles.surface]}>
+            <View style={styles.optionLeft}>
+              <Ionicons name="notifications-outline" size={22} color={colors.textSecondary} />
+              <Text style={[styles.optionText, dynamicStyles.textPrimary]}>Threshold Alert</Text>
+            </View>
+            <TouchableOpacity onPress={() => setThresholdAlert(!thresholdAlert)}>
+              <View style={[styles.switchTrack, { backgroundColor: thresholdAlert ? colors.primary : colors.toggleInactive }]}>
+                <View style={[styles.switchThumb, thresholdAlert && { alignSelf: 'flex-end' }]} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-          {/* Date */}
-          <Text style={styles.fieldLabel}>DATE</Text>
-          <TextInput
-            style={styles.fieldInput}
-            value={date}
-            onChangeText={setDate}
-            placeholder="MM/DD/YYYY"
-            placeholderTextColor={Colors.inputPlaceholder}
-          />
+        {/* Notes */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, dynamicStyles.textSecondary]}>NOTES</Text>
+          <TextInput style={[styles.notesInput, dynamicStyles.surface]} placeholder="What was this for?" placeholderTextColor={colors.textMuted} value={notes} onChangeText={setNotes} />
+        </View>
 
-          {/* Recurring Transaction */}
-          <ToggleSwitch
-            label="Recurring Transaction"
-            value={isRecurring}
-            onValueChange={setIsRecurring}
-          />
+        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleSave}>
+          <Text style={styles.saveBtnText}>Save Up!</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
-          {/* Threshold Alert */}
-          <ToggleSwitch
-            label="Threshold Alert"
-            description="Notify at 80%"
-            value={thresholdAlert}
-            onValueChange={setThresholdAlert}
-          />
-
-          {/* Notes */}
-          <Text style={styles.fieldLabel}>NOTES</Text>
-          <TextInput
-            style={[styles.fieldInput, styles.notesInput]}
-            placeholder="What was this for?"
-            placeholderTextColor={Colors.inputPlaceholder}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-          />
-
-          {/* Save Button */}
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSaveTransaction}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.textPrimary} />
-            <Text style={styles.saveBtnText}>Save Transaction</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
+      {/* Keypad Modal */}
+      <Modal visible={showKeypad} transparent animationType="slide">
+        <View style={styles.keypadOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => setShowKeypad(false)} />
+          <View style={[styles.keypadContainer, { backgroundColor: colors.surface }]}>
+            <View style={styles.keypadHeader}>
+              <Text style={[styles.keypadTitle, dynamicStyles.textPrimary]}>Enter Amount</Text>
+              <TouchableOpacity onPress={() => setShowKeypad(false)}><Ionicons name="close" size={24} color={colors.textPrimary} /></TouchableOpacity>
+            </View>
+            <View style={styles.amountPreview}>
+              <Text style={[styles.amountDisplay, { color: colors.primary }]}>{currency.symbol} <Text style={styles.amountMain}>{amount}</Text></Text>
+            </View>
+            <CustomKeypad value={amount} onChange={setAmount} onContinue={() => setShowKeypad(false)} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    letterSpacing: 1.5,
-  },
-  typeToggle: {
-    flexDirection: 'row',
-    margin: Spacing.lg,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    padding: 3,
-  },
-  typeBtn: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    alignItems: 'center',
-  },
-  typeBtnActive: {
-    backgroundColor: Colors.danger,
-  },
-  incomeActive: {
-    backgroundColor: Colors.success,
-  },
-  typeBtnText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-  },
-  typeBtnTextActive: {
-    color: Colors.textPrimary,
-    fontFamily: FontFamily.semiBold,
-  },
-  stepOne: {
-    flex: 1,
-  },
-  amountDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.xxxl,
-    gap: Spacing.xs,
-  },
-  currencySymbol: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.xxxl,
-    color: Colors.textSecondary,
-  },
-  amountText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 48,
-    color: Colors.textPrimary,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: Spacing.xxl,
-    gap: Spacing.lg,
-    justifyContent: 'center',
-  },
-  categoryItem: {
-    alignItems: 'center',
-    width: 72,
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-  },
-  categoryItemSelected: {
-    backgroundColor: Colors.surface,
-  },
-  categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryLabel: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-  },
-  categoryLabelSelected: {
-    color: Colors.textPrimary,
-    fontFamily: FontFamily.semiBold,
-  },
-  keypadSection: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: Spacing.xxxl,
-  },
-  continueBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.lg,
-    marginHorizontal: Spacing.xxl,
-    alignItems: 'center',
-    marginTop: Spacing.xl,
-  },
-  continueBtnDisabled: {
-    opacity: 0.4,
-  },
-  continueBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-  },
-  stepTwo: {
-    flex: 1,
-  },
-  stepTwoContent: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.massive,
-  },
-  summaryCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryAmount: {
-    fontFamily: FontFamily.bold,
-    fontSize: 32,
-    color: Colors.textPrimary,
-  },
-  summaryCategory: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    marginTop: 4,
-  },
-  fieldLabel: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.lg,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  timeframeTabs: {
-    marginBottom: Spacing.sm,
-  },
-  fieldInput: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  notesInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    marginTop: Spacing.xxl,
-  },
-  saveBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-  },
-  cancelBtn: {
-    paddingVertical: Spacing.lg,
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
+  headerTitle: { fontFamily: FontFamily.bold, fontSize: FontSize.lg },
+  scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: 60 },
+  amountCard: { padding: Spacing.xl, borderRadius: BorderRadius.xl, borderWidth: 1, marginBottom: Spacing.xl, ...Shadow.small },
+  amountHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  amountLabel: { fontFamily: FontFamily.bold, fontSize: 10, letterSpacing: 1 },
+  currencyBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  currencyText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: 10 },
+  amountDisplay: { fontFamily: FontFamily.bold, fontSize: 32 },
+  amountMain: { fontSize: 48 },
+  section: { marginBottom: Spacing.xl },
+  sectionTitle: { fontFamily: FontFamily.bold, fontSize: 10, letterSpacing: 1, marginBottom: Spacing.lg },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  categoryBtn: { width: '30%', paddingVertical: Spacing.lg, alignItems: 'center', borderRadius: BorderRadius.lg, borderWidth: 1, gap: Spacing.sm },
+  categoryIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  categoryText: { fontFamily: FontFamily.medium, fontSize: 12 },
+  tabContainer: { flexDirection: 'row', padding: 4, borderRadius: BorderRadius.lg, borderWidth: 1 },
+  tab: { flex: 1, paddingVertical: Spacing.md, alignItems: 'center' },
+  tabText: { fontFamily: FontFamily.medium, fontSize: 13 },
+  datePicker: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1 },
+  dateText: { fontFamily: FontFamily.semiBold, fontSize: FontSize.md },
+  optionsSection: { gap: Spacing.md, marginBottom: Spacing.xl },
+  optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1 },
+  optionLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  optionText: { fontFamily: FontFamily.medium, fontSize: FontSize.md },
+  switchTrack: { width: 44, height: 24, borderRadius: 12, padding: 2, justifyContent: 'center' },
+  switchThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFFFFF' },
+  notesInput: { padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1, fontFamily: FontFamily.regular, fontSize: FontSize.md, minHeight: 60 },
+  saveBtn: { borderRadius: BorderRadius.md, paddingVertical: Spacing.xl, alignItems: 'center', ...Shadow.medium, marginTop: Spacing.sm },
+  saveBtnText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: FontSize.lg },
+  keypadOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  keypadContainer: { borderTopLeftRadius: BorderRadius.xxl, borderTopRightRadius: BorderRadius.xxl, paddingBottom: Spacing.huge },
+  keypadHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Spacing.xl },
+  keypadTitle: { fontFamily: FontFamily.bold, fontSize: FontSize.lg },
+  amountPreview: { alignItems: 'center', paddingBottom: Spacing.xl },
 });
 
 export default AddTransactionScreen;

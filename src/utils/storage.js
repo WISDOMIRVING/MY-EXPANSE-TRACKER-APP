@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
   CURRENCY: '@sovereign_ledger_currency',
   USER_PROFILE: '@sovereign_ledger_user_profile',
   LAST_RECURRING_CHECK: '@sovereign_ledger_last_recurring',
+  THEME: '@sovereign_ledger_theme',
 };
 
 export const saveData = async (key, value) => {
@@ -28,6 +29,22 @@ export const loadData = async (key) => {
   } catch (error) {
     console.error(`Error loading data for key ${key}:`, error);
     return null;
+  }
+};
+
+export const clearAndRestore = async (data) => {
+  try {
+    const { transactions, budgets, currency, themeMode } = data;
+    await Promise.all([
+      saveTransactions(transactions || []),
+      saveBudgets(budgets || []),
+      saveCurrency(currency || null),
+      saveTheme(themeMode || 'light'),
+    ]);
+    return true;
+  } catch (error) {
+    console.error('Restore failed:', error);
+    return false;
   }
 };
 
@@ -87,6 +104,12 @@ export const saveLastRecurringCheck = (date) =>
 
 export const loadLastRecurringCheck = () =>
   loadData(STORAGE_KEYS.LAST_RECURRING_CHECK);
+
+export const saveTheme = (theme) =>
+  saveData(STORAGE_KEYS.THEME, theme);
+
+export const loadTheme = () =>
+  loadData(STORAGE_KEYS.THEME);
 
 export { STORAGE_KEYS };
 export default {

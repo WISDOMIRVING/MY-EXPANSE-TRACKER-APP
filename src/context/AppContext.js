@@ -1,14 +1,34 @@
 // Sovereign Ledger — Global App Context with Reducer
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import { Alert, Appearance, Platform } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 import {
   saveTransactions, loadTransactions,
   saveBudgets, loadBudgets,
   saveCurrency, loadCurrency,
   saveLastRecurringCheck, loadLastRecurringCheck,
+  saveTheme, loadTheme,
 } from '../utils/storage';
 import { DEFAULT_CURRENCY, getCurrency } from '../utils/currency';
 import { processRecurringTransactions } from '../utils/recurring';
+import { LightTheme, DarkTheme } from '../theme/colors';
+import i18n from '../utils/i18n';
 import dayjs from 'dayjs';
+
+// Lazy load notifications to avoid Expo Go SDK 53+ crash on Android
+let Notifications = null;
+try {
+  Notifications = require('expo-notifications');
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+} catch (e) {
+  console.log('Notifications not available in this environment');
+}
 
 const AppContext = createContext();
 
@@ -24,189 +44,20 @@ const ACTIONS = {
   DELETE_BUDGET: 'DELETE_BUDGET',
   SET_CURRENCY: 'SET_CURRENCY',
   SET_VERIFIED: 'SET_VERIFIED',
+  SET_THEME: 'SET_THEME',
   ADD_RECURRING_TRANSACTIONS: 'ADD_RECURRING_TRANSACTIONS',
 };
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 
-// Sample seed data for first-time users
-const SEED_TRANSACTIONS = [
-  {
-    id: generateId(),
-    type: 'income',
-    amount: 5500,
-    category: 'Salary',
-    description: 'Monthly Salary',
-    date: dayjs().subtract(2, 'day').toISOString(),
-    isRecurring: true,
-    recurringInterval: 'monthly',
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 1500,
-    category: 'Housing',
-    description: 'Monthly Rent',
-    date: dayjs().subtract(1, 'day').toISOString(),
-    isRecurring: true,
-    recurringInterval: 'monthly',
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 85,
-    category: 'Food',
-    description: 'Grocery Shopping',
-    date: dayjs().subtract(1, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 45.50,
-    category: 'Transport',
-    description: 'Bus to Kane',
-    date: dayjs().toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 32,
-    category: 'Food',
-    description: 'Dining Out',
-    date: dayjs().subtract(3, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 150,
-    category: 'Transport',
-    description: 'Train to Abuja',
-    date: dayjs().subtract(4, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 750,
-    category: 'Transport',
-    description: 'Flight to NYC',
-    date: dayjs().subtract(5, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'income',
-    amount: 2000,
-    category: 'Salary',
-    description: 'Freelance Payment',
-    date: dayjs().subtract(6, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 420,
-    category: 'Food',
-    description: 'Restaurant Week',
-    date: dayjs().subtract(7, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 680,
-    category: 'Shopping',
-    description: 'Groceries Bulk',
-    date: dayjs().subtract(8, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 2500,
-    category: 'Transport',
-    description: 'Cruise to Miami',
-    date: dayjs().subtract(10, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 20,
-    category: 'Transport',
-    description: 'Ferry to Lagos Island',
-    date: dayjs().subtract(11, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 300,
-    category: 'Transport',
-    description: 'Car Rental in Accra',
-    date: dayjs().subtract(12, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 15,
-    category: 'Transport',
-    description: 'Ride Share to Ibadan',
-    date: dayjs().subtract(13, 'day').toISOString(),
-    isRecurring: false,
-  },
-  {
-    id: generateId(),
-    type: 'expense',
-    amount: 1999,
-    category: 'Transport',
-    description: 'Back to Lagos',
-    date: dayjs().subtract(14, 'day').toISOString(),
-    isRecurring: false,
-  },
-];
-
-const SEED_BUDGETS = [
-  {
-    id: generateId(),
-    category: 'Housing',
-    limit: 2500,
-    period: 'monthly',
-    icon: 'home',
-  },
-  {
-    id: generateId(),
-    category: 'Food',
-    limit: 800,
-    period: 'monthly',
-    icon: 'restaurant',
-  },
-  {
-    id: generateId(),
-    category: 'Shopping',
-    limit: 1200,
-    period: 'monthly',
-    icon: 'cart',
-  },
-  {
-    id: generateId(),
-    category: 'Transport',
-    limit: 500,
-    period: 'monthly',
-    icon: 'car',
-  },
-];
-
+// Initial State
 const initialState = {
   isLoading: true,
   transactions: [],
   budgets: [],
   currency: DEFAULT_CURRENCY,
   isVerified: false,
+  themeMode: Appearance.getColorScheme() || 'light', // 'light' | 'dark'
 };
 
 function appReducer(state, action) {
@@ -220,19 +71,20 @@ function appReducer(state, action) {
         transactions: action.payload.transactions || [],
         budgets: action.payload.budgets || [],
         currency: action.payload.currency || DEFAULT_CURRENCY,
+        themeMode: action.payload.themeMode || state.themeMode,
         isLoading: false,
       };
 
     case ACTIONS.ADD_TRANSACTION:
       return {
         ...state,
-        transactions: [{ ...action.payload, id: action.payload.id || generateId() }, ...state.transactions],
+        transactions: [{ ...action.payload, id: action.payload.id || generateId() }, ...(state.transactions || [])],
       };
 
     case ACTIONS.UPDATE_TRANSACTION:
       return {
         ...state,
-        transactions: state.transactions.map(t =>
+        transactions: (state.transactions || []).map(t =>
           t.id === action.payload.id ? { ...t, ...action.payload } : t
         ),
       };
@@ -240,19 +92,19 @@ function appReducer(state, action) {
     case ACTIONS.DELETE_TRANSACTION:
       return {
         ...state,
-        transactions: state.transactions.filter(t => t.id !== action.payload),
+        transactions: (state.transactions || []).filter(t => t.id !== action.payload),
       };
 
     case ACTIONS.ADD_BUDGET:
       return {
         ...state,
-        budgets: [...state.budgets, { ...action.payload, id: action.payload.id || generateId() }],
+        budgets: [...(state.budgets || []), { ...action.payload, id: action.payload.id || generateId() }],
       };
 
     case ACTIONS.UPDATE_BUDGET:
       return {
         ...state,
-        budgets: state.budgets.map(b =>
+        budgets: (state.budgets || []).map(b =>
           b.id === action.payload.id ? { ...b, ...action.payload } : b
         ),
       };
@@ -260,7 +112,7 @@ function appReducer(state, action) {
     case ACTIONS.DELETE_BUDGET:
       return {
         ...state,
-        budgets: state.budgets.filter(b => b.id !== action.payload),
+        budgets: (state.budgets || []).filter(b => b.id !== action.payload),
       };
 
     case ACTIONS.SET_CURRENCY:
@@ -269,10 +121,13 @@ function appReducer(state, action) {
     case ACTIONS.SET_VERIFIED:
       return { ...state, isVerified: action.payload };
 
+    case ACTIONS.SET_THEME:
+      return { ...state, themeMode: action.payload };
+
     case ACTIONS.ADD_RECURRING_TRANSACTIONS:
       return {
         ...state,
-        transactions: [...action.payload, ...state.transactions],
+        transactions: [...action.payload, ...(state.transactions || [])],
       };
 
     default:
@@ -286,99 +141,137 @@ export function AppProvider({ children }) {
   // Load persisted data on mount
   useEffect(() => {
     loadPersistedData();
+    setupNotifications();
   }, []);
 
-  // Auto-save transactions whenever they change
-  useEffect(() => {
-    if (!state.isLoading && state.transactions.length >= 0) {
-      saveTransactions(state.transactions);
+  const setupNotifications = async () => {
+    if (!Notifications) return;
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        await Notifications.requestPermissionsAsync();
+      }
+    } catch (e) {
+      console.log('Skipping notifications permissions check.');
     }
+  };
+
+  // Auto-save effects
+  useEffect(() => {
+    if (!state.isLoading) saveTransactions(state.transactions);
   }, [state.transactions, state.isLoading]);
 
-  // Auto-save budgets whenever they change
   useEffect(() => {
-    if (!state.isLoading && state.budgets.length >= 0) {
-      saveBudgets(state.budgets);
-    }
+    if (!state.isLoading) saveBudgets(state.budgets);
   }, [state.budgets, state.isLoading]);
 
-  // Auto-save currency whenever it changes
   useEffect(() => {
-    if (!state.isLoading) {
-      saveCurrency(state.currency);
-    }
+    if (!state.isLoading) saveCurrency(state.currency);
   }, [state.currency, state.isLoading]);
+
+  useEffect(() => {
+    if (!state.isLoading) saveTheme(state.themeMode);
+  }, [state.themeMode, state.isLoading]);
 
   const loadPersistedData = async () => {
     try {
-      const [transactions, budgets, currency, lastRecurringCheck] = await Promise.all([
+      const [transactions, budgets, currency, lastRecurringCheck, themeMode] = await Promise.all([
         loadTransactions(),
         loadBudgets(),
         loadCurrency(),
         loadLastRecurringCheck(),
+        loadTheme(),
       ]);
-
-      const loadedTransactions = transactions || SEED_TRANSACTIONS;
-      const loadedBudgets = budgets || SEED_BUDGETS;
-      const loadedCurrency = currency ? getCurrency(currency.code) : DEFAULT_CURRENCY;
 
       dispatch({
         type: ACTIONS.LOAD_ALL_DATA,
         payload: {
-          transactions: loadedTransactions,
-          budgets: loadedBudgets,
-          currency: loadedCurrency,
+          transactions: transactions || [],
+          budgets: budgets || [],
+          currency: currency ? getCurrency(currency.code) : DEFAULT_CURRENCY,
+          themeMode: themeMode || Appearance.getColorScheme() || 'light',
         },
       });
 
-      // Process recurring transactions
-      const newRecurring = processRecurringTransactions(loadedTransactions, lastRecurringCheck);
+      // Process recurring
+      const newRecurring = processRecurringTransactions(transactions || [], lastRecurringCheck);
       if (newRecurring.length > 0) {
         dispatch({ type: ACTIONS.ADD_RECURRING_TRANSACTIONS, payload: newRecurring });
       }
       saveLastRecurringCheck(dayjs().toISOString());
     } catch (error) {
-      console.error('Error loading persisted data:', error);
-      dispatch({
-        type: ACTIONS.LOAD_ALL_DATA,
-        payload: {
-          transactions: SEED_TRANSACTIONS,
-          budgets: SEED_BUDGETS,
-          currency: DEFAULT_CURRENCY,
-        },
-      });
+      console.error('Error loading data:', error);
     }
   };
 
-  // Helper computed values
-  const totalIncome = state.transactions
+  // Biometric Auth
+  const authenticateBiometrically = async () => {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (!hasHardware || !isEnrolled) return false;
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Access Sovereign Ledger',
+        fallbackLabel: 'Use Passcode',
+      });
+
+      if (result.success) {
+        dispatch({ type: ACTIONS.SET_VERIFIED, payload: true });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Auth error:', error);
+      return false;
+    }
+  };
+
+  // Notifications for Budget Alerts
+  const checkBudgetThresholds = useCallback((budgetsWithSpent) => {
+    if (!Notifications) return;
+    budgetsWithSpent.forEach(async (budget) => {
+      try {
+        if (budget.percentage >= 80 && budget.percentage < 100) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: '⚠️ Budget Warning',
+              body: `You've spent ${Math.round(budget.percentage)}% of your ${budget.category} budget.`,
+            },
+            trigger: null, // immediate
+          });
+        } else if (budget.percentage >= 100) {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: '🛑 Budget Exceeded',
+              body: `You've exceeded your ${budget.category} budget!`,
+            },
+            trigger: null,
+          });
+        }
+      } catch (e) {
+        // Silently fail for notifications in Expo Go
+      }
+    });
+  }, []);
+
+  // Computed values
+  const totalIncome = (state.transactions || [])
     .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpenses = state.transactions
+  const totalExpenses = (state.transactions || [])
     .filter(t => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const balance = totalIncome - totalExpenses;
 
-  // Budget calculations — compute spent for each budget
-  const budgetsWithSpent = state.budgets.map(budget => {
+  const budgetsWithSpent = (state.budgets || []).map(budget => {
     const now = dayjs();
-    let periodStart;
-    switch (budget.period) {
-      case 'weekly':
-        periodStart = now.startOf('week');
-        break;
-      case 'yearly':
-        periodStart = now.startOf('year');
-        break;
-      case 'monthly':
-      default:
-        periodStart = now.startOf('month');
-        break;
-    }
+    let periodStart = now.startOf(budget.period || 'month');
 
-    const spent = state.transactions
+    const spent = (state.transactions || [])
       .filter(t =>
         t.type === 'expense' &&
         t.category === budget.category &&
@@ -386,39 +279,39 @@ export function AppProvider({ children }) {
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const remaining = Math.max(0, budget.limit - spent);
     const percentage = budget.limit > 0 ? (spent / budget.limit) * 100 : 0;
-    const status = percentage >= 100 ? 'over' : percentage >= 80 ? 'warning' : 'healthy';
-
-    return { ...budget, spent, remaining, percentage, status };
+    return { ...budget, spent, remaining: Math.max(0, budget.limit - spent), percentage };
   });
+
+  // Watch budgets for alerts
+  useEffect(() => {
+    if (!state.isLoading && budgetsWithSpent.length > 0) {
+      checkBudgetThresholds(budgetsWithSpent);
+    }
+  }, [state.transactions]);
+
+  const colors = state.themeMode === 'dark' ? DarkTheme : LightTheme;
 
   const contextValue = {
     ...state,
+    colors,
     budgets: budgetsWithSpent,
     totalIncome,
     totalExpenses,
     balance,
     dispatch,
     ACTIONS,
-
-    // Convenience action creators
-    addTransaction: (transaction) =>
-      dispatch({ type: ACTIONS.ADD_TRANSACTION, payload: transaction }),
-    updateTransaction: (transaction) =>
-      dispatch({ type: ACTIONS.UPDATE_TRANSACTION, payload: transaction }),
-    deleteTransaction: (id) =>
-      dispatch({ type: ACTIONS.DELETE_TRANSACTION, payload: id }),
-    addBudget: (budget) =>
-      dispatch({ type: ACTIONS.ADD_BUDGET, payload: budget }),
-    updateBudget: (budget) =>
-      dispatch({ type: ACTIONS.UPDATE_BUDGET, payload: budget }),
-    deleteBudget: (id) =>
-      dispatch({ type: ACTIONS.DELETE_BUDGET, payload: id }),
-    setCurrency: (currency) =>
-      dispatch({ type: ACTIONS.SET_CURRENCY, payload: currency }),
-    setVerified: (verified) =>
-      dispatch({ type: ACTIONS.SET_VERIFIED, payload: verified }),
+    // Auth Helpers
+    setVerified: (verified) => dispatch({ type: ACTIONS.SET_VERIFIED, payload: verified }),
+    authenticateBiometrically,
+    toggleTheme: () => dispatch({ type: ACTIONS.SET_THEME, payload: state.themeMode === 'light' ? 'dark' : 'light' }),
+    
+    // Form Validation Helper
+    validateTransaction: (transaction) => {
+      if (!transaction.amount || transaction.amount <= 0) return 'Please enter a valid amount';
+      if (!transaction.category) return 'Please select a category';
+      return null;
+    },
   };
 
   return (
@@ -430,9 +323,7 @@ export function AppProvider({ children }) {
 
 export const useAppContext = () => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
+  if (!context) throw new Error('useAppContext must be used within an AppProvider');
   return context;
 };
 

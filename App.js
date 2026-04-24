@@ -48,7 +48,6 @@ export default function App() {
       <SafeAreaProvider>
         <NavigationContainer>
           <AuthGate />
-          <StatusBar style="dark" />
         </NavigationContainer>
       </SafeAreaProvider>
     </AppProvider>
@@ -58,7 +57,7 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },

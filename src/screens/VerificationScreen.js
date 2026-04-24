@@ -1,4 +1,4 @@
-// Sovereign Ledger — Identity Verification Screen (Liveness Check)
+// Sovereign Ledger — Pixel Perfect Identity Verification
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
@@ -7,51 +7,40 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { useAppContext } from '../context/AppContext';
 
-const { width, height } = Dimensions.get('window');
-const CIRCLE_SIZE = width * 0.65;
+const { width } = Dimensions.get('window');
+const SCANNER_SIZE = width * 0.65;
 
 const INSTRUCTIONS = [
-  'Position your face within the frame',
+  'Center your face in the frame',
   'Blink slowly two times',
   'Turn your head slightly to the left',
   'Turn your head slightly to the right',
   'Smile naturally',
-  'Hold still for verification',
+  'Hold still for final analysis',
 ];
 
-const VerificationScreen = ({ onVerified }) => {
+const VerificationScreen = () => {
   const insets = useSafeAreaInsets();
-  const { setVerified } = useAppContext();
-  const [step, setStep] = useState('info'); // 'info' | 'camera' | 'processing' | 'success' | 'failed'
+  const { setVerified, colors, themeMode } = useAppContext();
+  const [step, setStep] = useState('info'); // 'info' | 'camera' | 'processing' | 'success' | 'failure'
   const [permission, requestPermission] = useCameraPermissions();
   const [currentInstruction, setCurrentInstruction] = useState(0);
   const [progress, setProgress] = useState(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.5)).current;
   const instructionFade = useRef(new Animated.Value(1)).current;
 
-  // Pulse animation for circle
   useEffect(() => {
     if (step === 'camera') {
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1200,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.08, duration: 1000, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
         ])
       );
       pulse.start();
@@ -59,47 +48,34 @@ const VerificationScreen = ({ onVerified }) => {
     }
   }, [step]);
 
-  // Liveness verification sequence
   useEffect(() => {
     if (step === 'camera') {
       const sequence = async () => {
-        for (let i = 0; i < INSTRUCTIONS.length; i++) {
-          setCurrentInstruction(i);
-          
-          // Fade in instruction
-          instructionFade.setValue(0);
-          Animated.timing(instructionFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-          
-          // Wait for user to "complete" step
-          await new Promise(resolve => setTimeout(resolve, 2500));
-          
-          // Update progress
-          setProgress(((i + 1) / INSTRUCTIONS.length) * 100);
+        try {
+          for (let i = 0; i < INSTRUCTIONS.length; i++) {
+            setCurrentInstruction(i);
+            instructionFade.setValue(0);
+            Animated.timing(instructionFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            setProgress(((i + 1) / INSTRUCTIONS.length) * 100);
+          }
+          setStep('processing');
+          // Simulated liveness check result
+          setTimeout(() => {
+            const isSuccess = Math.random() > 0.05; // 95% success rate for simulation
+            setStep(isSuccess ? 'success' : 'failure');
+          }, 2000);
+        } catch (error) {
+          setStep('failure');
         }
-        
-        setStep('processing');
-        setTimeout(() => setStep('success'), 2000);
       };
-      
       sequence();
     }
   }, [step]);
 
-  // Success animation
   useEffect(() => {
-    if (step === 'success') {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          bounciness: 12,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (step === 'success' || step === 'failure') {
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
     }
   }, [step]);
 
@@ -107,104 +83,70 @@ const VerificationScreen = ({ onVerified }) => {
     const { status } = await requestPermission();
     if (status === 'granted') {
       setStep('camera');
+      setProgress(0);
     } else {
       Alert.alert('Permission Denied', 'Camera access is required for identity verification.');
     }
   };
 
-  const handleGoToDashboard = () => {
-    setVerified(true);
-    if (onVerified) onVerified();
+  const dynamicStyles = {
+    container: { backgroundColor: colors.background },
+    textPrimary: { color: colors.textPrimary },
+    textSecondary: { color: colors.textSecondary },
+    surface: { backgroundColor: colors.surface },
   };
 
-  // INFO SCREEN
   if (step === 'info') {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" />
-        <View style={styles.infoContent}>
-          <View style={styles.infoIconContainer}>
-            <View style={styles.infoIconCircle}>
-              <Ionicons name="shield-checkmark" size={48} color={Colors.primary} />
+      <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
+        <View style={styles.content}>
+          <View style={styles.topSection}>
+            <View style={[styles.miniCircle, { backgroundColor: colors.primaryFaded }]}>
+              <Ionicons name="finger-print" size={24} color={colors.primary} />
+            </View>
+            <Text style={[styles.title, dynamicStyles.textPrimary]}>Identity Verification</Text>
+            <Text style={[styles.subtitle, dynamicStyles.textSecondary]}>
+              We need to perform a quick liveness check to confirm your identity.
+            </Text>
+          </View>
+
+          <View style={styles.visualContainer}>
+            <View style={[styles.scannerCircle, { borderColor: colors.primary }]}>
+              <Ionicons name="camera-outline" size={60} color={colors.primary} />
+            </View>
+            <View style={[styles.instructionBadge, { backgroundColor: colors.infoFaded }]}>
+              <Ionicons name="information-circle" size={16} color={colors.info} />
+              <Text style={[styles.badgeText, { color: colors.info }]}>Center your face in the frame</Text>
             </View>
           </View>
 
-          <Text style={styles.infoTitle}>Identity Verification</Text>
-          <Text style={styles.infoSubtitle}>
-            Center your face in the frame and follow the instructions to secure your account.
-          </Text>
-
-          <View style={styles.instructionsList}>
-            <View style={styles.instructionItem}>
-              <View style={styles.checkIcon}>
-                <Ionicons name="checkmark" size={16} color={Colors.success} />
-              </View>
-              <Text style={styles.instructionText}>Center your face in the frame</Text>
-            </View>
-            <View style={styles.instructionItem}>
-              <View style={styles.checkIcon}>
-                <Ionicons name="checkmark" size={16} color={Colors.success} />
-              </View>
-              <Text style={styles.instructionText}>Follow on-screen movements</Text>
-            </View>
-            <View style={styles.instructionItem}>
-              <View style={styles.checkIcon}>
-                <Ionicons name="checkmark" size={16} color={Colors.success} />
-              </View>
-              <Text style={styles.instructionText}>Ensure adequate lighting</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.startBtn} onPress={startVerification}>
-            <Text style={styles.startBtnText}>Start Verification</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelLink}
-            onPress={() => handleGoToDashboard()}
-          >
-            <Text style={styles.cancelLinkText}>Skip for now</Text>
+          <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary }]} onPress={startVerification}>
+            <Text style={styles.mainBtnText}>Start Verification</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // CAMERA SCREEN
   if (step === 'camera') {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" />
-        
-        <View style={styles.headerSimple}>
-          <TouchableOpacity onPress={() => setStep('info')}>
-            <Ionicons name="close" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitleSimple}>VERIFYING IDENTITY</Text>
-          <View style={{ width: 24 }} />
+      <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
+        <View style={styles.cameraHeader}>
+          <TouchableOpacity onPress={() => setStep('info')}><Ionicons name="close" size={28} color={colors.textPrimary} /></TouchableOpacity>
         </View>
-
-        <View style={styles.cameraContainer}>
-          <View style={styles.cameraWrapper}>
+        <View style={styles.cameraContent}>
+          <View style={[styles.cameraWrapper, { borderColor: colors.primary }]}>
             <CameraView style={styles.camera} facing="front" />
-            <View style={styles.circleOverlay}>
-              <Animated.View
-                style={[
-                  styles.circleFrame,
-                  { transform: [{ scale: pulseAnim }] },
-                ]}
-              />
-            </View>
+            <Animated.View style={[styles.cameraPulse, { transform: [{ scale: pulseAnim }], borderColor: colors.primary }]} />
           </View>
-
-          <View style={styles.progressSection}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
+          <View style={styles.livenessProgress}>
+            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
             </View>
-            <Animated.View style={[styles.instructionBox, { opacity: instructionFade }]}>
-              <Text style={styles.instructionMain}>
-                {INSTRUCTIONS[currentInstruction]}
-              </Text>
+            <Animated.View style={{ opacity: instructionFade }}>
+              <Text style={[styles.livenessText, dynamicStyles.textPrimary]}>{INSTRUCTIONS[currentInstruction]}</Text>
             </Animated.View>
           </View>
         </View>
@@ -212,244 +154,82 @@ const VerificationScreen = ({ onVerified }) => {
     );
   }
 
-  // PROCESSING SCREEN
   if (step === 'processing') {
     return (
-      <View style={[styles.container, styles.centerContainer]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-        <Text style={styles.processingText}>Analyzing facial features...</Text>
+      <View style={[styles.container, dynamicStyles.container, styles.center]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.processingText, dynamicStyles.textSecondary]}>Validating account security...</Text>
       </View>
     );
   }
 
-  // SUCCESS SCREEN
+  if (step === 'failure') {
+    return (
+      <View style={[styles.container, dynamicStyles.container, styles.center]}>
+        <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
+          <View style={[styles.successCircle, { backgroundColor: colors.dangerFaded, borderColor: colors.danger }]}>
+            <Ionicons name="close" size={60} color={colors.danger} />
+          </View>
+          <Text style={[styles.successTitle, dynamicStyles.textPrimary]}>Verification Failed</Text>
+          <Text style={[styles.successSubtitle, dynamicStyles.textSecondary]}>We couldn't confirm your liveness. Please try again in better lighting.</Text>
+          <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary, width: '100%' }]} onPress={startVerification}>
+            <Text style={styles.mainBtnText}>Retry Verification</Text>
+            <Ionicons name="refresh" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, styles.centerContainer]}>
-      <Animated.View style={[styles.successContent, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.successCircle}>
-          <Ionicons name="checkmark" size={60} color={Colors.success} />
+    <View style={[styles.container, dynamicStyles.container, styles.center]}>
+      <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
+        <View style={[styles.successCircle, { backgroundColor: colors.successFaded, borderColor: colors.success }]}>
+          <Ionicons name="checkmark" size={60} color={colors.success} />
         </View>
-        <Text style={styles.successTitle}>Verification Successful</Text>
-        <Text style={styles.successSubtitle}>Identity verified. Accessing your ledger.</Text>
-        
-        <TouchableOpacity style={styles.dashboardBtn} onPress={handleGoToDashboard}>
-          <Text style={styles.dashboardBtnText}>Go to Dashboard</Text>
+        <Text style={[styles.successTitle, dynamicStyles.textPrimary]}>Verification Successful</Text>
+        <Text style={[styles.successSubtitle, dynamicStyles.textSecondary]}>Connecting to your account securely...</Text>
+        <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary, width: '100%' }]} onPress={() => setVerified(true)}>
+          <Text style={styles.mainBtnText}>Go to Dashboard</Text>
+          <Ionicons name="arrow-forward" size={20} color="#FFF" />
         </TouchableOpacity>
+        <Text style={[styles.encryptionNote, { color: colors.textMuted }]}>
+          <Ionicons name="lock-closed" size={12} /> Secured by Enterprise Grade Encryption
+        </Text>
       </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  centerContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xxl,
-  },
-  infoContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.xxl,
-    alignItems: 'center',
-  },
-  infoIconContainer: {
-    marginBottom: Spacing.xxxl,
-  },
-  infoIconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoTitle: {
-    fontFamily: FontFamily.bold,
-    fontSize: 26,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  infoSubtitle: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.xxxl,
-  },
-  instructionsList: {
-    alignSelf: 'stretch',
-    gap: Spacing.lg,
-    marginBottom: Spacing.massive,
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  checkIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Colors.successFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  instructionText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textPrimary,
-  },
-  startBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.round,
-    paddingVertical: Spacing.xl,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-    ...Shadow.small,
-  },
-  startBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textInverse,
-  },
-  cancelLink: {
-    paddingVertical: Spacing.md,
-  },
-  cancelLinkText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-  },
-  // Camera Step
-  headerSimple: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  headerTitleSimple: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    letterSpacing: 2,
-  },
-  cameraContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: Spacing.xxxl,
-  },
-  cameraWrapper: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    borderRadius: CIRCLE_SIZE / 2,
-    overflow: 'hidden',
-    borderWidth: 4,
-    borderColor: Colors.border,
-  },
-  camera: {
-    flex: 1,
-  },
-  circleOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  circleFrame: {
-    width: CIRCLE_SIZE - 20,
-    height: CIRCLE_SIZE - 20,
-    borderRadius: (CIRCLE_SIZE - 20) / 2,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    borderStyle: 'dashed',
-  },
-  progressSection: {
-    marginTop: Spacing.massive,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.massive,
-    alignItems: 'center',
-  },
-  progressTrack: {
-    height: 4,
-    backgroundColor: Colors.border,
-    width: '100%',
-    borderRadius: 2,
-    marginBottom: Spacing.xl,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 2,
-  },
-  instructionBox: {
-    backgroundColor: Colors.surface,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xl,
-    borderRadius: BorderRadius.lg,
-    ...Shadow.small,
-  },
-  instructionMain: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-    textAlign: 'center',
-  },
-  processingText: {
-    marginTop: Spacing.xl,
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-  },
-  // Success
-  successContent: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  successCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.successFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xxxl,
-    borderWidth: 2,
-    borderColor: Colors.success,
-  },
-  successTitle: {
-    fontFamily: FontFamily.bold,
-    fontSize: 28,
-    color: Colors.textPrimary,
-    marginBottom: Spacing.md,
-  },
-  successSubtitle: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: Spacing.massive,
-  },
-  dashboardBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.round,
-    paddingVertical: Spacing.xl,
-    paddingHorizontal: Spacing.massive,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    ...Shadow.small,
-  },
-  dashboardBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textInverse,
-  },
+  container: { flex: 1 },
+  content: { flex: 1, padding: Spacing.xxl, alignItems: 'center', justifyContent: 'space-between' },
+  topSection: { alignItems: 'center', gap: Spacing.md },
+  miniCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: FontFamily.bold, fontSize: 28, textAlign: 'center' },
+  subtitle: { fontFamily: FontFamily.regular, fontSize: FontSize.md, textAlign: 'center', lineHeight: 24 },
+  visualContainer: { alignItems: 'center', gap: Spacing.xl },
+  scannerCircle: { width: SCANNER_SIZE, height: SCANNER_SIZE, borderRadius: SCANNER_SIZE / 2, borderWidth: 6, alignItems: 'center', justifyContent: 'center', borderStyle: 'solid' },
+  instructionBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.round },
+  badgeText: { fontFamily: FontFamily.semiBold, fontSize: 13 },
+  mainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: BorderRadius.md, paddingVertical: Spacing.xl, width: '100%', ...Shadow.medium },
+  mainBtnText: { fontFamily: FontFamily.bold, fontSize: FontSize.lg, color: '#FFF' },
+  cameraHeader: { padding: Spacing.lg },
+  cameraContent: { flex: 1, alignItems: 'center', paddingTop: Spacing.xxl },
+  cameraWrapper: { width: SCANNER_SIZE, height: SCANNER_SIZE, borderRadius: SCANNER_SIZE / 2, overflow: 'hidden', borderWidth: 4 },
+  camera: { flex: 1 },
+  cameraPulse: { ...StyleSheet.absoluteFillObject, borderRadius: SCANNER_SIZE / 2, borderWidth: 4 },
+  livenessProgress: { marginTop: Spacing.massive, width: '80%', alignItems: 'center' },
+  progressTrack: { height: 6, width: '100%', borderRadius: 3, marginBottom: Spacing.xl },
+  progressFill: { height: '100%', borderRadius: 3 },
+  livenessText: { fontFamily: FontFamily.bold, fontSize: FontSize.xl, textAlign: 'center' },
+  center: { justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
+  processingText: { marginTop: Spacing.xl, fontFamily: FontFamily.medium, fontSize: FontSize.md },
+  successContent: { alignItems: 'center', width: '100%' },
+  successCircle: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xxxl, borderWidth: 2 },
+  successTitle: { fontFamily: FontFamily.bold, fontSize: 32, marginBottom: Spacing.md },
+  successSubtitle: { fontFamily: FontFamily.regular, fontSize: FontSize.md, textAlign: 'center', marginBottom: Spacing.massive },
+  encryptionNote: { marginTop: Spacing.xl, fontFamily: FontFamily.regular, fontSize: 12 },
 });
 
 export default VerificationScreen;

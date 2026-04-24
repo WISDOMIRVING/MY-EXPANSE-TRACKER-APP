@@ -1,54 +1,52 @@
-// Sovereign Ledger — Transaction Item Component
+// Sovereign Ledger — Pixel Perfect Transaction Item
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius } from '../theme/spacing';
-import CategoryIcon, { getCategoryColor } from './CategoryIcon';
+import { Spacing } from '../theme/spacing';
 import { formatCurrency } from '../utils/currency';
+import { getCategoryIcon } from './CategoryIcon';
+import { useAppContext } from '../context/AppContext';
 import dayjs from 'dayjs';
 
-const TransactionItem = ({ transaction, currency, onPress, showDate = true }) => {
-  const { type, amount, category, description, date, isRecurring } = transaction;
-  const isIncome = type === 'income';
-  const amountColor = isIncome ? Colors.success : Colors.danger;
-  const amountSign = isIncome ? '+' : '-';
+const TransactionItem = ({ transaction, currency }) => {
+  const { colors } = useAppContext();
+  const { type, amount, category, description, date } = transaction;
+
+  const isExpense = type === 'expense';
+  const categoryColor = colors[category.toLowerCase()] || colors.primary;
 
   return (
-    <TouchableOpacity 
-      style={styles.container} 
-      onPress={() => onPress && onPress(transaction)}
-      activeOpacity={0.7}
-    >
-      <CategoryIcon category={category} size={42} iconSize={20} />
-      
-      <View style={styles.info}>
-        <Text style={styles.description} numberOfLines={1}>
-          {description || category}
-        </Text>
-        <View style={styles.metaRow}>
-          <Text style={styles.category}>{category}</Text>
-          {isRecurring && (
-            <View style={styles.recurringBadge}>
-              <Ionicons name="repeat" size={10} color={Colors.primary} />
-              <Text style={styles.recurringText}>Recurring</Text>
-            </View>
-          )}
+    <View style={styles.container}>
+      <View style={[styles.iconContainer, { backgroundColor: categoryColor + '15' }]}>
+        <Ionicons name={getCategoryIcon(category)} size={20} color={categoryColor} />
+      </View>
+      <View style={styles.content}>
+        <View style={styles.leftContent}>
+          <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+            {description || category}
+          </Text>
+          <View style={styles.metaRow}>
+            <Text style={[styles.category, { color: colors.textSecondary }]}>{category}</Text>
+            {transaction.isRecurring && (
+              <>
+                <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
+                <Ionicons name="repeat" size={12} color={colors.primary} />
+                <Text style={[styles.recurringLabel, { color: colors.primary }]}>{transaction.recurringInterval}</Text>
+              </>
+            )}
+            <Text style={[styles.dot, { color: colors.textMuted }]}>•</Text>
+            <Text style={[styles.time, { color: colors.textSecondary }]}>{dayjs(date).format('h:mm A')}</Text>
+          </View>
+        </View>
+        <View style={styles.rightContent}>
+          <Text style={[styles.amount, { color: isExpense ? colors.danger : colors.success }]}>
+            {isExpense ? '-' : '+'}{formatCurrency(amount, currency)}
+          </Text>
+          <Text style={[styles.date, { color: colors.textMuted }]}>{dayjs(date).format('MMM DD')}</Text>
         </View>
       </View>
-
-      <View style={styles.amountContainer}>
-        <Text style={[styles.amount, { color: amountColor }]}>
-          {amountSign}{formatCurrency(amount, currency)}
-        </Text>
-        {showDate && (
-          <Text style={styles.date}>
-            {dayjs(date).format('MMM DD')}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -59,57 +57,61 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     gap: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
   },
-  info: {
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
     flex: 1,
-    gap: Spacing.xxs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  description: {
-    fontFamily: FontFamily.medium,
+  leftContent: {
+    flex: 1,
+    gap: 2,
+  },
+  title: {
+    fontFamily: FontFamily.bold,
     fontSize: FontSize.md,
-    color: Colors.textPrimary,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 4,
   },
   category: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  recurringBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: Colors.primaryFaded,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  recurringText: {
     fontFamily: FontFamily.medium,
-    fontSize: 9,
-    color: Colors.primary,
+    fontSize: 12,
   },
-  amountContainer: {
+  dot: {
+    fontSize: 10,
+  },
+  time: {
+    fontFamily: FontFamily.regular,
+    fontSize: 12,
+  },
+  recurringLabel: {
+    fontFamily: FontFamily.bold,
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  rightContent: {
     alignItems: 'flex-end',
-    gap: Spacing.xxs,
+    gap: 2,
   },
   amount: {
-    fontFamily: FontFamily.semiBold,
+    fontFamily: FontFamily.bold,
     fontSize: FontSize.md,
-    letterSpacing: 0.3,
   },
   date: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
+    fontFamily: FontFamily.medium,
+    fontSize: 10,
+    textTransform: 'uppercase',
   },
 });
 

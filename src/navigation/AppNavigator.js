@@ -4,8 +4,8 @@ const PlaceholderView = () => <View style={{ flex: 1, backgroundColor: 'transpar
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../theme/colors';
-import { FontFamily, FontSize } from '../theme/typography';
+import { FontFamily } from '../theme/typography';
+import { useAppContext } from '../context/AppContext';
 
 // Screens
 import DashboardScreen from '../screens/DashboardScreen';
@@ -21,32 +21,27 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 const TabNavigator = () => {
+  const { colors } = useAppContext();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ focused, color }) => {
           let iconName;
-
-          if (route.name === 'HomeTab') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'AnalyticsTab') {
-            iconName = focused ? 'bar-chart' : 'bar-chart-outline';
-          } else if (route.name === 'AddTab') {
-            iconName = 'add-circle';
-            return <Ionicons name={iconName} size={42} color={Colors.primary} style={{ marginTop: -10 }} />;
-          } else if (route.name === 'BudgetTab') {
-            iconName = focused ? 'wallet' : 'wallet-outline';
-          } else if (route.name === 'ProfileTab') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
+          if (route.name === 'HomeTab') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'AnalyticsTab') iconName = focused ? 'bar-chart' : 'bar-chart-outline';
+          else if (route.name === 'AddTab') {
+            return <Ionicons name="add-circle" size={42} color={colors.primary} style={{ marginTop: -10 }} />;
+          } else if (route.name === 'BudgetTab') iconName = focused ? 'wallet' : 'wallet-outline';
+          else if (route.name === 'ProfileTab') iconName = focused ? 'person' : 'person-outline';
 
           return <Ionicons name={iconName} size={24} color={color} />;
         },
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: Colors.tabBarBackground,
-          borderTopColor: Colors.divider,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           height: 85,
           paddingBottom: 25,
           paddingTop: 10,
@@ -62,58 +57,27 @@ const TabNavigator = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen 
-        name="HomeTab" 
-        component={DashboardScreen} 
-        options={{ tabBarLabel: 'Home' }}
-      />
-      <Tab.Screen 
-        name="AnalyticsTab" 
-        component={AnalyticsScreen} 
-        options={{ tabBarLabel: 'Analytics' }}
-      />
-      <Tab.Screen 
-        name="AddTab" 
-        component={PlaceholderView} // Placeholder
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            e.preventDefault();
-            navigation.navigate('AddTransaction');
-          },
-        })}
-        options={{ tabBarLabel: '' }}
-      />
-      <Tab.Screen 
-        name="BudgetTab" 
-        component={BudgetScreen} 
-        options={{ tabBarLabel: 'Budget' }}
-      />
-      <Tab.Screen 
-        name="ProfileTab" 
-        component={ProfileScreen} 
-        options={{ tabBarLabel: 'Profile' }}
-      />
+      <Tab.Screen name="HomeTab" component={DashboardScreen} options={{ tabBarLabel: 'Home' }} />
+      <Tab.Screen name="AnalyticsTab" component={AnalyticsScreen} options={{ tabBarLabel: 'Analytics' }} />
+      <Tab.Screen name="AddTab" component={PlaceholderView} listeners={({ navigation }) => ({ tabPress: (e) => { e.preventDefault(); navigation.navigate('AddTransaction'); } })} options={{ tabBarLabel: '' }} />
+      <Tab.Screen name="BudgetTab" component={BudgetScreen} options={{ tabBarLabel: 'Budget' }} />
+      <Tab.Screen name="ProfileTab" component={ProfileScreen} options={{ tabBarLabel: 'Profile' }} />
     </Tab.Navigator>
   );
 };
 
 const AppNavigator = () => {
+  const { colors } = useAppContext();
+
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        cardStyle: { backgroundColor: Colors.background },
+        cardStyle: { backgroundColor: colors.background },
       }}
     >
       <Stack.Screen name="MainTabs" component={TabNavigator} />
-      <Stack.Screen 
-        name="AddTransaction" 
-        component={AddTransactionScreen} 
-        options={{ 
-          presentation: 'modal',
-          gestureEnabled: true,
-        }}
-      />
+      <Stack.Screen name="AddTransaction" component={AddTransactionScreen} options={{ presentation: 'modal', gestureEnabled: true }} />
       <Stack.Screen name="Verification" component={VerificationScreen} />
       <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </Stack.Navigator>

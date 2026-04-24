@@ -1,85 +1,56 @@
-# Sovereign Ledger 🪙
+# Sovereign Ledger — Private Financial Hub
 
-**Sovereign Ledger** is a premium, high-performance expense tracker built with React Native and Expo. Designed for users who demand both security and elegance, it offers a comprehensive suite of financial management tools protected by state-of-the-art facial liveness verification.
+Sovereign Ledger is a premium, **privacy-first** expense tracking application built with React Native and Expo. It empowers users to manage their financial life with professional-grade tools while ensuring 100% data sovereignty through local-only storage and advanced biometric security.
 
-![Sovereign Ledger Banner](https://img.shields.io/badge/Sovereign%20Ledger-FinTech-blue?style=for-the-badge&logo=react)
+![Sovereign Ledger Banner](https://img.shields.io/badge/Privacy-First-0047BB?style=for-the-badge)
+![Expo SDK 54](https://img.shields.io/badge/Expo-SDK_54-000000?style=for-the-badge&logo=expo)
+![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=for-the-badge&logo=react)
 
-## ✨ Features
+## 🛡️ Security & Privacy
+- **Facial Liveness Verification**: A mandatory security gate that requires real-time user gestures (blink, turn, smile) to unlock the app.
+- **Zero-Backend Architecture**: All data remains strictly on your device. No tracking, no cloud syncing, no third-party servers.
+- **Local Biometrics**: Optional integration with native device biometrics (FaceID/Fingerprint) for secondary authentication.
 
-### 🛡️ Secure Access Gate
-- **Facial Liveness Verification**: Advanced security layer using `expo-camera` to ensure only the authorized user can access financial data.
-- **Biometric-inspired UI**: A sleek, high-fidelity verification interface.
+## 🚀 Core Features
+- **Transaction Management**: Effortlessly log Income and Expenses with custom categories and rich metadata.
+- **Automated Recurring Transactions**: Set up weekly or monthly commitments (Rent, Salary, Subscriptions) that auto-generate in your ledger.
+- **Smart Budgeting**: Category-specific allocation with real-time threshold alerts (80% and 100% warnings).
+- **Data Visualization**: Interactive bar charts and pie charts providing deep spending insights and trend analysis.
+- **Professional Exports**: Generate financial reports as **CSV** or **PDF** directly from your device.
+- **Portable Backups**: Manual JSON-based backup and restore via the system clipboard for device migration without a server.
 
-### 📊 Financial Insights
-- **Interactive Dashboard**: Real-time overview of total balance, monthly income, and expenses.
-- **Advanced Analytics**: Visual spend analysis using `react-native-chart-kit`. Track your habits with category-wise breakdowns and monthly trends.
-- **Budgeting System**: Set monthly limits per category and track your progress with dynamic progress bars.
+## 🎨 Design System (Pixel Perfect)
+The UI is meticulously crafted to match high-fidelity Figma designs, featuring:
+- **Dynamic Themes**: Seamless Dark and Light mode support based on system preferences.
+- **Custom Keypad**: A bespoke, user-friendly numeric entry system for rapid logging.
+- **Internationalization**: Full support for global currency symbols and bilingual (English/Spanish) support.
 
-### 📝 Transaction Management
-- **Detailed Ledger**: A complete, searchable history of all transactions.
-- **Categorized Spending**: Easily tag expenses (e.g., Food, Transport, Shopping) and income.
-- **Persistent Storage**: All data is stored locally using `@react-native-async-storage/async-storage` for maximum privacy.
+## 🛠️ Tech Stack
+- **Framework**: React Native / Expo (SDK 54)
+- **State Management**: Context API + useReducer
+- **Storage**: @react-native-async-storage/async-storage
+- **Graphics**: react-native-chart-kit / react-native-svg
+- **Utilities**: dayjs, i18n-js, expo-camera, expo-notifications
 
-### 📥 Data & Portability
-- **CSV & PDF Export**: Generate professional CSV reports or beautifully styled PDF financial statements.
-- **System Sharing**: Share your financial data via system-level share sheets.
+## 📦 Installation & Setup
 
-## 🚀 Tech Stack
-
-- **Framework**: [React Native](https://reactnative.dev/) with [Expo SDK 54](https://expo.dev/)
-- **Navigation**: [React Navigation 7](https://reactnavigation.org/) (Stack & Bottom Tabs)
-- **Styling**: Modern, Light-themed Design System with [Inter Google Fonts](https://fonts.google.com/specimen/Inter)
-- **Storage**: AsyncStorage for local-first data persistence
-- **Charts**: [React Native Chart Kit](https://github.com/indiespirit/react-native-chart-kit)
-- **Utilities**: `dayjs` for dates, `uuid` for transaction IDs
-
-## 🛠️ Getting Started
-
-### Prerequisites
-- [Node.js](https://nodejs.org/) (LTS)
-- [Expo Go](https://expo.dev/go) app on your mobile device (to test on physical hardware)
-
-### Installation
-
-1. **Clone the repository**
+1. **Clone the repository**:
    ```bash
-   git clone <your-repo-url>
-   cd MY-EXPENSE-TRACKER-APP
+   git clone https://github.com/WISDOMIRVING/MY-EXPENSE-TRACKER-APP.git
    ```
 
-2. **Install dependencies**
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-3. **Start the development server**
+3. **Start the application**:
    ```bash
-   npm run start
+   npx expo start
    ```
 
-4. **Run on your device**
-   - Scan the QR code with the Expo Go app (Android) or Camera app (iOS).
-   - Alternatively, press `a` for Android Emulator or `i` for iOS Simulator if set up locally.
-
-## 📂 Project Structure
-
-```text
-├── .expo/              # Expo configuration
-├── assets/             # Images, icons, and fonts
-├── src/
-│   ├── components/     # Reusable UI components (Cards, Buttons, etc.)
-│   ├── context/        # Global state management (AppContext)
-│   ├── navigation/     # App routing and Auth Gate
-│   ├── screens/        # Main application screens
-│   ├── theme/          # Color palettes and global styles
-│   └── utils/          # Helper functions (Export, formatting)
-├── App.js              # Application entry point
-└── package.json        # Project metadata and dependencies
-```
-
-## 🔐 Security Note
-Sovereign Ledger prioritizes user privacy. All financial data is stored **locally on your device**. No data is transmitted to external servers unless explicitly shared by the user via the export feature.
+## 📄 Data Sovereignty Note
+All financial data is stored locally using `AsyncStorage`. Clearing app data or uninstalling the app will permanently remove your financial history unless you have exported a backup. Use the **Backup to Clipboard** feature in the Profile tab to keep your data safe.
 
 ---
-
-Built with ❤️ for better financial sovereignty.
+*Built for absolute financial privacy and sovereign control.*

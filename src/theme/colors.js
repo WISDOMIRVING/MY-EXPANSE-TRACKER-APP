@@ -1,70 +1,58 @@
-// Sovereign Ledger — Color Design System (matching Figma)
-export const Colors = {
-  // Core backgrounds
-  background: '#F5F5F5',
+// Sovereign Ledger — Pixel Perfect Design Tokens
+export const LightTheme = {
+  primary: '#0047BB',
+  primaryFaded: '#E6EEF8',
+  secondary: '#1A1C1E',
+  background: '#F8F9FB',
   surface: '#FFFFFF',
-  surfaceLight: '#FFFFFF',
-  card: '#FFFFFF',
-  cardElevated: '#F9FAFB',
+  border: '#EEF0F2',
+  textPrimary: '#1A1C1E',
+  textSecondary: '#6C7278',
+  textMuted: '#999DA3',
+  success: '#00C48C',
+  successFaded: '#E6F9F4',
+  warning: '#FF8A00',
+  warningFaded: '#FFF4E6',
+  danger: '#FF3B30',
+  dangerFaded: '#FFEBEA',
+  info: '#007AFF',
+  infoFaded: '#E6F2FF',
+  toggleInactive: '#E2E2E2',
   
-  // Primary
-  primary: '#0052FF',
-  primaryLight: '#4D8CFF',
-  primaryDark: '#003ECC',
-  primaryFaded: 'rgba(0, 82, 255, 0.08)',
-  
-  // Accent / Status
-  success: '#27AE60',
-  successLight: '#2ECC71',
-  successFaded: 'rgba(39, 174, 96, 0.12)',
-  danger: '#FF4D4D',
-  dangerLight: '#FF7070',
-  dangerFaded: 'rgba(255, 77, 77, 0.12)',
-  warning: '#F2994A',
-  warningFaded: 'rgba(242, 153, 74, 0.12)',
-  info: '#00BFFF',
-  
-  // Text
-  textPrimary: '#000000',
-  textSecondary: '#666666',
-  textMuted: '#999999',
-  textInverse: '#FFFFFF',
-  
-  // Borders & Dividers
-  border: '#E0E0E0',
-  borderLight: '#F0F0F0',
-  divider: 'rgba(0, 0, 0, 0.05)',
-  
-  // Category Colors (Matching Figma)
-  categoryFood: '#F2994A',
-  categoryTransport: '#00BFFF',
-  categoryHousing: '#27AE60',
-  categoryShopping: '#9B51E0',
-  categorySalary: '#27AE60',
-  categoryEntertainment: '#F2C94C',
-  categoryHealth: '#FF4D4D',
-  categoryOther: '#828282',
-  categoryDining: '#E67E22',
-  categoryGroceries: '#1ABC9C',
-  
-  // Overlays
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.2)',
-  
-  // Tab bar
-  tabBarBackground: '#FFFFFF',
-  tabBarActive: '#0052FF',
-  tabBarInactive: '#999999',
-  
-  // Input
-  inputBackground: '#F9FAFB',
-  inputBorder: '#E0E0E0',
-  inputPlaceholder: '#999999',
-  
-  // Toggle
-  toggleActive: '#0052FF',
-  toggleInactive: '#D1D1D1',
-  toggleThumb: '#FFFFFF',
+  // Category specific colors from Figma
+  housing: '#0047BB',
+  food: '#00C48C',
+  transport: '#007AFF',
+  shopping: '#FF3B30',
+  other: '#6C7278',
 };
 
-export default Colors;
+export const DarkTheme = {
+  primary: '#3D8BFF',
+  primaryFaded: 'rgba(61, 139, 255, 0.15)',
+  secondary: '#F8F9FB',
+  background: '#0F1113',
+  surface: '#1A1C1E',
+  border: '#2A2D31',
+  textPrimary: '#F8F9FB',
+  textSecondary: '#999DA3',
+  textMuted: '#6C7278',
+  success: '#00D89A',
+  successFaded: 'rgba(0, 216, 154, 0.15)',
+  warning: '#FFA333',
+  warningFaded: 'rgba(255, 163, 51, 0.15)',
+  danger: '#FF5C5C',
+  dangerFaded: 'rgba(255, 92, 92, 0.15)',
+  info: '#3D8BFF',
+  infoFaded: 'rgba(61, 139, 255, 0.15)',
+  toggleInactive: '#3A3D42',
+
+  // Category specific colors (Dark optimized)
+  housing: '#3D8BFF',
+  food: '#00D89A',
+  transport: '#3D8BFF',
+  shopping: '#FF5C5C',
+  other: '#999DA3',
+};
+
+export default { LightTheme, DarkTheme };

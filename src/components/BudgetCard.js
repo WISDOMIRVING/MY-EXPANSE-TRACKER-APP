@@ -1,177 +1,148 @@
-// Sovereign Ledger — Budget Card Component
+// Sovereign Ledger — Pixel Perfect Budget Card
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius } from '../theme/spacing';
-import { getCategoryColor, getCategoryIcon } from './CategoryIcon';
+import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { formatCurrency } from '../utils/currency';
+import { getCategoryIcon } from './CategoryIcon';
+import { useAppContext } from '../context/AppContext';
 
-const BudgetCard = ({ budget, currency, onPress }) => {
-  const { category, limit, spent, remaining, percentage, status, period } = budget;
-  const categoryColor = getCategoryColor(category);
-  const categoryIcon = getCategoryIcon(category);
+const BudgetCard = ({ budget, currency, onDelete }) => {
+  const { colors } = useAppContext();
+  const { category, limit, spent, remaining, percentage } = budget;
 
-  const getStatusConfig = () => {
-    if (status === 'over') {
-      return { label: 'AT LIMIT', color: Colors.danger, bgColor: Colors.dangerFaded };
-    }
-    if (status === 'warning') {
-      return { label: `${Math.round(percentage)}%`, color: Colors.warning, bgColor: Colors.warningFaded };
-    }
-    return { label: 'HEALTHY', color: Colors.success, bgColor: Colors.successFaded };
-  };
+  const isAtLimit = percentage >= 100;
+  const isWarning = percentage >= 80 && percentage < 100;
+  
+  const statusColor = isAtLimit ? colors.danger : isWarning ? colors.warning : colors.success;
+  const statusLabel = isAtLimit ? 'AT LIMIT' : isWarning ? 'WARNING' : 'HEALTHY';
 
-  const statusConfig = getStatusConfig();
-  const progressWidth = Math.min(percentage, 100);
-
-  const getPeriodLabel = () => {
-    const labels = { weekly: 'This Week', monthly: 'This Month', yearly: 'This Year' };
-    return labels[period] || 'This Month';
-  };
+  const categoryColor = colors[category.toLowerCase()] || colors.primary;
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={() => onPress && onPress(budget)}
-      activeOpacity={0.7}
-    >
-      {/* Header */}
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.header}>
-        <View style={[styles.iconContainer, { backgroundColor: `${categoryColor}20` }]}>
-          <Ionicons name={categoryIcon} size={18} color={categoryColor} />
-        </View>
-        <View style={styles.headerInfo}>
-          <Text style={styles.categoryName}>{category}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
-            <Text style={[styles.statusText, { color: statusConfig.color }]}>
-              {statusConfig.label}
-            </Text>
+        <View style={styles.leftHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: categoryColor + '15' }]}>
+            <Ionicons name={getCategoryIcon(category)} size={22} color={categoryColor} />
+          </View>
+          <View style={styles.titleSection}>
+            <Text style={[styles.categoryName, { color: colors.textPrimary }]}>{category}</Text>
+            <View style={styles.amountRow}>
+              <Text style={[styles.amount, { color: colors.textPrimary }]}>{formatCurrency(spent, currency)}</Text>
+              <Text style={[styles.limit, { color: colors.textMuted }]}> / {formatCurrency(limit, currency)}</Text>
+            </View>
           </View>
         </View>
+        <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
+          <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+        </View>
       </View>
 
-      {/* Amount */}
-      <View style={styles.amountRow}>
-        <Text style={styles.spentAmount}>
-          {formatCurrency(spent, currency)}
-        </Text>
-        <Text style={styles.limitAmount}>
-          {' / '}{formatCurrency(limit, currency)}
-        </Text>
+      <View style={styles.progressSection}>
+        <View style={styles.progressTextRow}>
+          <Text style={[styles.progressPercent, { color: colors.textSecondary }]}>USED {Math.round(percentage)}%</Text>
+          <Text style={[styles.remainingText, { color: statusColor }]}>{formatCurrency(remaining, currency)} LEFT</Text>
+        </View>
+        <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
+          <View style={[styles.progressFill, { width: `${Math.min(100, percentage)}%`, backgroundColor: statusColor }]} />
+        </View>
       </View>
 
-      {/* Progress Bar */}
-      <View style={styles.progressTrack}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${progressWidth}%`,
-              backgroundColor: statusConfig.color,
-            },
-          ]}
-        />
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.remainingText}>
-          {formatCurrency(remaining, currency)} LEFT
-        </Text>
-        <Text style={styles.periodText}>
-          {getPeriodLabel().toUpperCase()}
-        </Text>
-      </View>
-    </TouchableOpacity>
+      <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+        <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
+      </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
+  card: {
+    borderRadius: BorderRadius.xl,
     padding: Spacing.lg,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.border,
+    ...Shadow.small,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.xl,
+  },
+  leftHeader: {
+    flexDirection: 'row',
     gap: Spacing.md,
   },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  titleSection: {
+    gap: 2,
   },
   categoryName: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-  },
-  statusBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xxs,
-    borderRadius: BorderRadius.xs,
-  },
-  statusText: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.xs,
-    letterSpacing: 0.5,
+    fontSize: FontSize.lg,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: Spacing.sm,
   },
-  spentAmount: {
+  amount: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.xxl,
-    color: Colors.textPrimary,
+    fontSize: FontSize.xl,
   },
-  limitAmount: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
+  limit: {
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.sm,
   },
-  progressTrack: {
-    height: 6,
-    backgroundColor: Colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: Spacing.sm,
+  statusBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    borderRadius: BorderRadius.round,
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
+  statusText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 10,
+    letterSpacing: 0.5,
   },
-  footer: {
+  progressSection: {
+    gap: Spacing.sm,
+  },
+  progressTextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  remainingText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-  },
-  periodText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
+  progressPercent: {
+    fontFamily: FontFamily.bold,
+    fontSize: 10,
     letterSpacing: 0.5,
+  },
+  remainingText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  deleteBtn: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    right: Spacing.md,
+    padding: Spacing.xs,
   },
 });
 

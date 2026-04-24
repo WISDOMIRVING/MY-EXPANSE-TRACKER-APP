@@ -1,50 +1,56 @@
-// Sovereign Ledger — Balance Card Component
+// Sovereign Ledger — Balance Overview Card
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { formatCurrency } from '../utils/currency';
+import { useAppContext } from '../context/AppContext';
+
+const { width } = Dimensions.get('window');
 
 const BalanceCard = ({ balance, income, expenses, currency }) => {
+  const { colors } = useAppContext();
+
   return (
-    <View style={styles.container}>
-      {/* Main Balance */}
-      <View style={styles.balanceSection}>
-        <Text style={styles.balanceLabel}>Main Savings</Text>
-        <Text style={styles.balanceAmount}>
-          {formatCurrency(balance, currency)}
-        </Text>
+    <View style={[styles.card, { backgroundColor: colors.primary }]}>
+      {/* Background Decor */}
+      <View style={styles.decorCircle1} />
+      <View style={styles.decorCircle2} />
+
+      <View style={styles.cardHeader}>
+        <Text style={styles.label}>TOTAL BALANCE</Text>
+        <View style={styles.securityBadge}>
+          <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+          <Text style={styles.securityText}>SECURE</Text>
+        </View>
       </View>
 
-      {/* Income / Expense Row */}
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryIconRow}>
-            <View style={[styles.iconCircle, { backgroundColor: Colors.successFaded }]}>
-              <Ionicons name="trending-up" size={14} color={Colors.success} />
-            </View>
-            <Text style={styles.summaryLabel}>Income</Text>
+      <Text style={styles.balanceText}>
+        {formatCurrency(balance, currency)}
+      </Text>
+
+      <View style={styles.divider} />
+
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <View style={styles.statIconContainer}>
+            <Ionicons name="arrow-down-circle" size={20} color="#FFFFFF" />
           </View>
-          <Text style={[styles.summaryAmount, { color: Colors.success }]}>
-            +{formatCurrency(income, currency)}
-          </Text>
+          <View>
+            <Text style={styles.statLabel}>INCOME</Text>
+            <Text style={styles.statValue}>{formatCurrency(income, currency)}</Text>
+          </View>
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryIconRow}>
-            <View style={[styles.iconCircle, { backgroundColor: Colors.dangerFaded }]}>
-              <Ionicons name="trending-down" size={14} color={Colors.danger} />
-            </View>
-            <Text style={styles.summaryLabel}>Expenses</Text>
+        <View style={styles.statItem}>
+          <View style={styles.statIconContainer}>
+            <Ionicons name="arrow-up-circle" size={20} color="#FFFFFF" />
           </View>
-          <Text style={[styles.summaryAmount, { color: Colors.danger }]}>
-            -{formatCurrency(expenses, currency)}
-          </Text>
+          <View>
+            <Text style={styles.statLabel}>EXPENSES</Text>
+            <Text style={styles.statValue}>{formatCurrency(expenses, currency)}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -52,71 +58,96 @@ const BalanceCard = ({ balance, income, expenses, currency }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: Colors.surface,
+  card: {
+    marginHorizontal: Spacing.xl,
     borderRadius: 24,
-    padding: Spacing.xxl,
-    marginHorizontal: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    padding: Spacing.xl,
+    height: 200,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
     ...Shadow.medium,
   },
-  balanceSection: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-    gap: Spacing.xs,
+  decorCircle1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  balanceLabel: {
+  decorCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  label: {
     fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-    textTransform: 'uppercase',
+    fontSize: FontSize.xs,
+    color: 'rgba(255, 255, 255, 0.7)',
     letterSpacing: 1,
   },
-  balanceAmount: {
+  securityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    gap: 4,
+  },
+  securityText: {
     fontFamily: FontFamily.bold,
-    fontSize: 34,
-    color: Colors.textPrimary,
-    letterSpacing: -0.5,
+    fontSize: 8,
+    color: '#FFFFFF',
   },
-  summaryRow: {
+  balanceText: {
+    fontFamily: FontFamily.bold,
+    fontSize: 36,
+    color: '#FFFFFF',
+    marginTop: Spacing.sm,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginVertical: Spacing.md,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-  },
-  summaryCard: {
-    flex: 1,
     gap: Spacing.sm,
   },
-  summaryIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  statIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryLabel: {
+  statLabel: {
     fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    letterSpacing: 0.5,
   },
-  summaryAmount: {
-    fontFamily: FontFamily.bold,
-    fontSize: FontSize.lg,
-    marginLeft: 36,
-  },
-  divider: {
-    width: 1,
-    height: '80%',
-    backgroundColor: Colors.border,
-    marginHorizontal: Spacing.md,
+  statValue: {
+    fontFamily: FontFamily.semiBold,
+    fontSize: FontSize.md,
+    color: '#FFFFFF',
   },
 });
 

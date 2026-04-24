@@ -1,83 +1,100 @@
-// Sovereign Ledger — Custom Numeric Keypad
+// Sovereign Ledger — Pixel Perfect Custom Keypad
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../theme/colors';
 import { FontFamily, FontSize } from '../theme/typography';
 import { Spacing, BorderRadius } from '../theme/spacing';
+import { useAppContext } from '../context/AppContext';
 
-const { width } = Dimensions.get('window');
-const KEY_SIZE = (width - Spacing.xxxl * 2 - Spacing.md * 2) / 3;
+const CustomKeypad = ({ value, onChange, onContinue }) => {
+  const { colors } = useAppContext();
 
-const CustomKeypad = ({ onKeyPress, onDelete, onClear }) => {
-  const keys = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['.', '0', 'delete'],
-  ];
-
-  const handlePress = (key) => {
-    if (key === 'delete') {
-      onDelete && onDelete();
+  const handlePress = (num) => {
+    let newValue = value;
+    if (num === 'back') {
+      newValue = value.slice(0, -1);
+      if (newValue === '' || newValue === '0.') newValue = '0.00';
+    } else if (num === '.') {
+      if (!value.includes('.')) newValue = value + '.';
     } else {
-      onKeyPress && onKeyPress(key);
+      if (value === '0.00' || value === '0') {
+        newValue = num;
+      } else {
+        newValue = value + num;
+      }
     }
+    
+    // Formatting logic (simple)
+    if (newValue.includes('.')) {
+      const [int, dec] = newValue.split('.');
+      if (dec && dec.length > 2) return;
+    }
+    
+    onChange(newValue);
   };
+
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'];
 
   return (
     <View style={styles.container}>
-      {keys.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map((key) => (
-            <TouchableOpacity
-              key={key}
-              style={[
-                styles.key,
-                key === 'delete' && styles.deleteKey,
-              ]}
-              onPress={() => handlePress(key)}
-              activeOpacity={0.6}
-            >
-              {key === 'delete' ? (
-                <Ionicons name="backspace-outline" size={24} color={Colors.textPrimary} />
-              ) : (
-                <Text style={styles.keyText}>{key}</Text>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      ))}
+      <View style={styles.grid}>
+        {keys.map((key) => (
+          <TouchableOpacity
+            key={key}
+            style={[styles.key, { backgroundColor: colors.background }]}
+            onPress={() => handlePress(key)}
+          >
+            {key === 'back' ? (
+              <Ionicons name="backspace-outline" size={24} color={colors.textPrimary} />
+            ) : (
+              <Text style={[styles.keyText, { color: colors.textPrimary }]}>{key}</Text>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+      <TouchableOpacity
+        style={[styles.continueBtn, { backgroundColor: colors.primaryFaded }]}
+        onPress={onContinue}
+      >
+        <Text style={[styles.continueText, { color: colors.primary }]}>Continue</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Spacing.xxxl,
-    paddingVertical: Spacing.lg,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xl,
   },
-  row: {
+  grid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: Spacing.sm,
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
   },
   key: {
-    flex: 1,
-    height: 56,
+    width: '30%',
+    aspectRatio: 1.5,
     borderRadius: BorderRadius.md,
-    backgroundColor: Colors.surfaceLight,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  deleteKey: {
-    backgroundColor: Colors.surfaceLight,
   },
   keyText: {
     fontFamily: FontFamily.semiBold,
     fontSize: FontSize.xxl,
-    color: Colors.textPrimary,
+  },
+  continueBtn: {
+    width: '100%',
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueText: {
+    fontFamily: FontFamily.bold,
+    fontSize: FontSize.lg,
   },
 });
 
