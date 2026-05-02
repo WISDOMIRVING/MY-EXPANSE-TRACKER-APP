@@ -170,11 +170,15 @@ const VerificationScreen = ({ navigation }) => {
   const renderWrapper = (children, isDark = false) => {
     if (layout.isDesktopLayout) {
       return (
-        <View style={[styles.desktopWrapper, isDark && { backgroundColor: '#0B1120' }]}>
+        <ScrollView 
+          style={[styles.desktopWrapper, isDark && { backgroundColor: '#0B1120' }]}
+          contentContainerStyle={styles.desktopWrapperContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={[styles.desktopCard, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.1)' }]}>
             {children}
           </View>
-        </View>
+        </ScrollView>
       );
     }
     return (
@@ -324,7 +328,8 @@ const balanceScale = (anim) => anim.interpolate({ inputRange: [0, 0.5, 1], outpu
 const styles = StyleSheet.create({
   container: { flex: 1 },
   // Desktop-specific layout classes
-  desktopWrapper: { flex: 1, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', padding: 40 },
+  desktopWrapper: { flex: 1, backgroundColor: '#F3F4F6' },
+  desktopWrapperContent: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   desktopCard: { width: '100%', maxWidth: 480, backgroundColor: '#FFFFFF', borderRadius: 32, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.08, shadowRadius: 40, elevation: 10, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' },
   
   content: { flex: 1, width: '100%', alignItems: 'center' },
