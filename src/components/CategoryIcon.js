@@ -1,27 +1,28 @@
-// Sovereign Ledger — Category Icon Component
+// Sovereign Ledger — Category Icon Component with Figma Pastel Palette
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Colors from '../theme/colors';
+import { useAppContext } from '../context/AppContext';
 
 const CATEGORY_CONFIG = {
-  Food: { icon: 'restaurant', color: Colors.categoryFood, bg: 'rgba(242, 153, 74, 0.15)' },
-  'Dining Out': { icon: 'restaurant', color: Colors.categoryDining, bg: 'rgba(230, 126, 34, 0.15)' },
-  Transport: { icon: 'car', color: Colors.categoryTransport, bg: 'rgba(47, 124, 246, 0.15)' },
-  Housing: { icon: 'home', color: Colors.categoryHousing, bg: 'rgba(33, 150, 83, 0.15)' },
-  Shopping: { icon: 'cart', color: Colors.categoryShopping, bg: 'rgba(155, 81, 224, 0.15)' },
-  Groceries: { icon: 'basket', color: Colors.categoryGroceries, bg: 'rgba(26, 188, 156, 0.15)' },
-  Salary: { icon: 'cash', color: Colors.categorySalary, bg: 'rgba(39, 174, 96, 0.15)' },
-  Entertainment: { icon: 'game-controller', color: Colors.categoryEntertainment, bg: 'rgba(242, 201, 76, 0.15)' },
-  Health: { icon: 'medkit', color: Colors.categoryHealth, bg: 'rgba(235, 87, 87, 0.15)' },
-  Other: { icon: 'ellipsis-horizontal', color: Colors.categoryOther, bg: 'rgba(130, 130, 130, 0.15)' },
+  Food: { icon: 'restaurant', color: '#F2994A', bg: '#FFF5ED' },
+  'Dining Out': { icon: 'restaurant', color: '#E67E22', bg: '#FDF2E9' },
+  Transport: { icon: 'car', color: '#2F7CF6', bg: '#EBF2FF' },
+  Housing: { icon: 'home', color: '#219653', bg: '#E9F5EE' },
+  Shopping: { icon: 'cart', color: '#9B51E4', bg: '#F5EEFD' },
+  Groceries: { icon: 'basket', color: '#1ABC9C', bg: '#E8F8F5' },
+  Salary: { icon: '#27AE60', color: '#27AE60', bg: '#EAF7EE' },
+  Entertainment: { icon: 'game-controller', color: '#F2C94C', bg: '#FEF9E7' },
+  Health: { icon: 'medkit', color: '#EB5757', bg: '#FDECEC' },
+  Other: { icon: 'ellipsis-horizontal', color: '#828282', bg: '#F2F2F2' },
 };
 
-const CategoryIcon = ({ category, size = 40, iconSize = 20 }) => {
+const CategoryIcon = ({ category, size = 44, iconSize = 20 }) => {
+  const { themeMode } = useAppContext();
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Other;
 
   return (
-    <View style={[styles.container, { width: size, height: size, borderRadius: size / 2.5, backgroundColor: config.bg }]}>
+    <View style={[styles.container, { width: size, height: size, borderRadius: 12, backgroundColor: getCategoryBg(category, themeMode) }]}>
       <Ionicons name={config.icon} size={iconSize} color={config.color} />
     </View>
   );
@@ -31,12 +32,19 @@ export const getCategoryColor = (category) => {
   return (CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Other).color;
 };
 
+export const getCategoryBg = (category, themeMode = 'light') => {
+  const color = getCategoryColor(category);
+  if (themeMode === 'dark') {
+    return `${color}26`; // 15% opacity
+  }
+  return (CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Other).bg;
+};
+
 export const getCategoryIcon = (category) => {
   return (CATEGORY_CONFIG[category] || CATEGORY_CONFIG.Other).icon;
 };
 
 export const CATEGORIES = Object.keys(CATEGORY_CONFIG);
-
 export const EXPENSE_CATEGORIES = ['Food', 'Transport', 'Housing', 'Shopping', 'Groceries', 'Entertainment', 'Health', 'Other'];
 export const INCOME_CATEGORIES = ['Salary', 'Other'];
 

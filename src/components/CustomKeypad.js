@@ -13,7 +13,7 @@ const CustomKeypad = ({ value, onChange, onContinue }) => {
     let newValue = value;
     if (num === 'back') {
       newValue = value.slice(0, -1);
-      if (newValue === '' || newValue === '0.') newValue = '0.00';
+      if (newValue === '') newValue = '0.00';
     } else if (num === '.') {
       if (!value.includes('.')) newValue = value + '.';
     } else {
@@ -24,7 +24,6 @@ const CustomKeypad = ({ value, onChange, onContinue }) => {
       }
     }
     
-    // Formatting logic (simple)
     if (newValue.includes('.')) {
       const [int, dec] = newValue.split('.');
       if (dec && dec.length > 2) return;
@@ -41,22 +40,22 @@ const CustomKeypad = ({ value, onChange, onContinue }) => {
         {keys.map((key) => (
           <TouchableOpacity
             key={key}
-            style={[styles.key, { backgroundColor: colors.background }]}
+            style={styles.key}
             onPress={() => handlePress(key)}
           >
             {key === 'back' ? (
-              <Ionicons name="backspace-outline" size={24} color={colors.textPrimary} />
+              <Ionicons name="backspace-outline" size={24} color={colors.secondary} />
             ) : (
-              <Text style={[styles.keyText, { color: colors.textPrimary }]}>{key}</Text>
+              <Text style={[styles.keyText, { color: colors.secondary }]}>{key}</Text>
             )}
           </TouchableOpacity>
         ))}
       </View>
       <TouchableOpacity
-        style={[styles.continueBtn, { backgroundColor: colors.primaryFaded }]}
+        style={[styles.continueBtn, { backgroundColor: '#EBF2FF' }]} // Light blue for continue
         onPress={onContinue}
       >
-        <Text style={[styles.continueText, { color: colors.primary }]}>Continue</Text>
+        <Text style={[styles.continueText, { color: '#2F7CF6' }]}>Continue</Text>
       </TouchableOpacity>
     </View>
   );
@@ -64,37 +63,35 @@ const CustomKeypad = ({ value, onChange, onContinue }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
+    marginBottom: 24,
   },
   key: {
-    width: '30%',
-    aspectRatio: 1.5,
-    borderRadius: BorderRadius.md,
+    width: '33%',
+    height: 64,
     alignItems: 'center',
     justifyContent: 'center',
   },
   keyText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.xxl,
+    fontFamily: FontFamily.medium,
+    fontSize: 24,
   },
   continueBtn: {
     width: '100%',
-    paddingVertical: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    height: 56,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   continueText: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.lg,
+    fontSize: 16,
   },
 });
 

@@ -86,5 +86,25 @@ export const generateInsights = (transactions, budgets) => {
     }
   }
 
+  // 5. Predictive End-of-Month Analysis (ML-lite)
+  const daysInMonth = now.daysInMonth();
+  const dayOfMonth = now.date();
+  const totalBudget = budgets.reduce((sum, b) => sum + (b.limit || 0), 0);
+
+  if (dayOfMonth > 3 && totalThisMonth > 0 && totalBudget > 0) {
+    const dailyAverage = totalThisMonth / dayOfMonth;
+    const projectedTotal = dailyAverage * daysInMonth;
+    const overageProbability = projectedTotal / totalBudget;
+
+    if (overageProbability > 1.05) { // 5% buffer
+      insights.push({
+        type: 'warning',
+        title: 'Budget Prediction',
+        message: `Based on your daily average, you are on track to spend ${Math.round(projectedTotal)}, which is ${Math.round((overageProbability - 1) * 100)}% over your total budget.`,
+        icon: 'analytics'
+      });
+    }
+  }
+
   return insights;
 };

@@ -1,127 +1,146 @@
-// Sovereign Ledger — Pixel Perfect Ledger Screen
+// Sovereign Ledger — Cross-Platform Ledger/Wallet Screen
 import React, { useState, useMemo } from 'react';
-import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
+import { FontFamily } from '../theme/typography';
+import { Shadow } from '../theme/spacing';
 import { useAppContext } from '../context/AppContext';
 import TransactionItem from '../components/TransactionItem';
+import ContextMenu from '../components/desktop/ContextMenu';
+import AnimatedScreen, { AnimatedItem } from '../components/animated/AnimatedScreen';
+import useResponsiveLayout from '../hooks/useResponsiveLayout';
 import dayjs from 'dayjs';
 
-const LedgerScreen = ({ navigation }) => {
+const LedgerScreen = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const { transactions, currency, colors, themeMode } = useAppContext();
-  const [searchQuery, setSearchQuery] = useState('');
+  const layout = useResponsiveLayout();
+  const category = route?.params?.category;
 
   const filteredTransactions = useMemo(() => {
     if (!transactions) return [];
     let filtered = transactions;
-    
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.category.toLowerCase().includes(query) || 
-        (t.description && t.description.toLowerCase().includes(query))
-      );
+    if (category) {
+      filtered = filtered.filter(t => t.category.toLowerCase() === category.toLowerCase());
     }
-
     return filtered.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
-  }, [transactions, searchQuery]);
+  }, [transactions, category]);
 
   const groupedTransactions = useMemo(() => {
     const groups = {};
     filteredTransactions.forEach(t => {
-      const dateKey = dayjs(t.date).format('MMM DD, YYYY');
+      const date = dayjs(t.date);
+      let dateKey;
+      if (date.isSame(dayjs(), 'day')) dateKey = 'Today';
+      else if (date.isSame(dayjs().subtract(1, 'day'), 'day')) dateKey = 'Yesterday';
+      else dateKey = date.format('DD MMM YYYY');
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(t);
     });
     return Object.entries(groups);
   }, [filteredTransactions]);
 
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    textPrimary: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    surface: { backgroundColor: colors.surface, borderColor: colors.border },
-  };
+  const contextMenuItems = [
+    { label: 'Add Transaction', icon: 'add-circle-outline', action: 'add' },
+    { label: 'Filter by Category', icon: 'filter-outline', action: 'filter' },
+    { type: 'separator' },
+    { label: 'Export Ledger', icon: 'download-outline', action: 'export' },
+  ];
 
   return (
-    <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
-      <View style={styles.header}>
-        <Text style={[styles.title, dynamicStyles.textPrimary]}>Ledger</Text>
-        <TouchableOpacity style={[styles.filterBtn, dynamicStyles.surface]}>
-          <Ionicons name="options-outline" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+    <ContextMenu menuItems={contextMenuItems} onAction={() => {}} colors={colors}>
+      <AnimatedScreen animation="fadeSlideUp">
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: layout.isDesktopLayout ? 20 : insets.top }]}>
+          <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
 
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, dynamicStyles.surface]}>
-          <Ionicons name="search" size={18} color={colors.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Search records..."
-            placeholderTextColor={colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-        {groupedTransactions.length > 0 ? (
-          groupedTransactions.map(([dateKey, items]) => (
-            <View key={dateKey} style={styles.dateGroup}>
-              <Text style={[styles.dateHeader, { color: colors.textMuted }]}>{dateKey.split(',')[0].toUpperCase()}</Text>
-              <View style={[styles.transactionCard, dynamicStyles.surface]}>
-                {items.map((transaction, idx) => (
-                  <View key={transaction.id}>
-                    <TransactionItem transaction={transaction} currency={currency} />
-                    {idx < items.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
-                  </View>
-                ))}
-              </View>
-            </View>
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={48} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, dynamicStyles.textSecondary]}>No Records Found</Text>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation?.goBack?.()} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={24} color={colors.secondary} />
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: colors.secondary }]}>
+              {category ? `${category} Ledgers` : 'Wallet'}
+            </Text>
+            <View style={{ width: 44 }} />
           </View>
-        )}
-      </ScrollView>
 
-      <View style={[styles.bottomActions, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        <TouchableOpacity style={[styles.quickAddBtn, { backgroundColor: colors.primary }]} onPress={() => navigation.navigate('AddTransaction')}>
-          <Ionicons name="receipt-outline" size={20} color="#FFF" />
-          <Text style={styles.quickAddText}>Quick Add</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={[
+              styles.listContainer, 
+              { 
+                paddingHorizontal: layout.containerPadding,
+                maxWidth: layout.maxContentWidth || 1200,
+                width: '100%',
+                alignSelf: 'center'
+              }
+            ]}
+          >
+            {groupedTransactions.length > 0 ? (
+              groupedTransactions.map(([dateKey, items], gi) => (
+                <View key={dateKey} style={styles.dateGroup}>
+                  <View style={styles.transactionList}>
+                    {items.map((transaction, ti) => (
+                      <AnimatedItem key={transaction.id} index={gi * 3 + ti}>
+                        <TransactionItem transaction={transaction} currency={currency} />
+                      </AnimatedItem>
+                    ))}
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
+                <Text style={[styles.emptyTitle, { color: colors.secondary }]}>No Transactions</Text>
+                <Text style={styles.emptySubtitle}>No transactions found for this ledger.</Text>
+              </View>
+            )}
+
+            <AnimatedItem index={10}>
+              <View style={styles.footerInfo}>
+                <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={[styles.infoIconContainer, { backgroundColor: themeMode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F3F4F6' }]}>
+                    <Ionicons name="book-outline" size={24} color={colors.secondary} />
+                  </View>
+                  <Text style={[styles.infoTitle, { color: colors.secondary }]}>New Ledger</Text>
+                  <Text style={styles.infoSubtitle}>Keep track of every single ledger</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.quickAddBtn, { backgroundColor: colors.secondary }]}
+                  onPress={() => navigation?.navigate?.('AddTransaction', { type: 'expense', category })}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.quickAddText}>Quick Add</Text>
+                </TouchableOpacity>
+              </View>
+            </AnimatedItem>
+          </ScrollView>
+        </View>
+      </AnimatedScreen>
+    </ContextMenu>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md },
-  title: { fontFamily: FontFamily.bold, fontSize: 28 },
-  filterBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  searchContainer: { paddingHorizontal: Spacing.xl, marginBottom: Spacing.lg },
-  searchBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, height: 48, borderRadius: 12, borderWidth: 1, gap: Spacing.sm },
-  searchInput: { flex: 1, fontFamily: FontFamily.medium, fontSize: FontSize.md },
-  listContainer: { paddingHorizontal: Spacing.xl, paddingBottom: 160 },
-  dateGroup: { marginBottom: Spacing.xl },
-  dateHeader: { fontFamily: FontFamily.bold, fontSize: 10, letterSpacing: 1, marginBottom: Spacing.md },
-  transactionCard: { borderRadius: BorderRadius.xl, borderWidth: 1, overflow: 'hidden', ...Shadow.small },
-  divider: { height: 1, marginHorizontal: Spacing.lg },
-  emptyContainer: { alignItems: 'center', paddingVertical: Spacing.massive, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.semiBold, fontSize: FontSize.xl },
-  bottomActions: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg },
-  quickAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: BorderRadius.md, paddingVertical: Spacing.xl, ...Shadow.medium },
-  quickAddText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: FontSize.lg },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: FontFamily.bold, fontSize: 18 },
+  listContainer: { paddingBottom: 40 },
+  dateGroup: { marginBottom: 8 },
+  transactionList: {},
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 100, gap: 8 },
+  emptyTitle: { fontFamily: FontFamily.bold, fontSize: 18, marginTop: 16 },
+  emptySubtitle: { fontFamily: FontFamily.regular, fontSize: 14, color: '#9CA3AF' },
+  footerInfo: { paddingHorizontal: 0, marginTop: 20, alignItems: 'center' },
+  infoCard: { width: '100%', borderRadius: 24, padding: 24, alignItems: 'center', marginBottom: 20, borderWidth: 1 },
+  infoIconContainer: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  infoTitle: { fontFamily: FontFamily.bold, fontSize: 16, marginBottom: 4 },
+  infoSubtitle: { fontFamily: FontFamily.medium, fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
+  quickAddBtn: { width: '100%', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', ...Shadow.medium },
+  quickAddText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: 16 },
 });
 
 export default LedgerScreen;

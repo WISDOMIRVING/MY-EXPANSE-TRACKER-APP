@@ -1,7 +1,8 @@
-// Sovereign Ledger — Dashboard Screen (Home Tab)
-import React, { useMemo } from 'react';
+// Sovereign Ledger — Cross-Platform Dashboard with Responsive Layout & Animations
+import React, { useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
+  Dimensions, Animated, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,161 +10,257 @@ import { FontFamily, FontSize } from '../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency } from '../utils/currency';
-import { generateInsights } from '../utils/insights';
-import BalanceCard from '../components/BalanceCard';
 import TransactionItem from '../components/TransactionItem';
+import ContextMenu from '../components/desktop/ContextMenu';
+import AnimatedScreen, { AnimatedItem } from '../components/animated/AnimatedScreen';
+import useResponsiveLayout from '../hooks/useResponsiveLayout';
 import dayjs from 'dayjs';
-import i18n from '../utils/i18n';
 
 const DashboardScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const {
-    transactions, balance, totalIncome, totalExpenses, currency, budgets, colors, themeMode
+    transactions, balance, totalIncome, totalExpenses, currency, colors, themeMode, dispatch, ACTIONS,
   } = useAppContext();
+  const layout = useResponsiveLayout();
+
+  // Animated balance counter
+  const balanceAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(balanceAnim, { toValue: 1, tension: 50, friction: 8, useNativeDriver: true }).start();
+  }, [balance]);
 
   const recentTransactions = useMemo(() => {
     if (!transactions) return [];
     return [...transactions]
       .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
-      .slice(0, 5);
-  }, [transactions]);
+      .slice(0, layout.isDesktopLayout ? 8 : 5);
+  }, [transactions, layout.isDesktopLayout]);
 
-  const insights = useMemo(() => {
-    if (!transactions || !budgets) return [];
-    return generateInsights(transactions, budgets);
-  }, [transactions, budgets]);
+  const paddingTop = layout.isDesktopLayout ? 0 : insets.top + 20;
+  const heroHeight = layout.isDesktopLayout ? 200 : 280;
 
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    textPrimary: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    surface: { backgroundColor: colors.surface, borderColor: colors.border },
+  const contextMenuItems = [
+    { label: 'Add Transaction', icon: 'add-circle-outline', action: 'add' },
+    { label: 'Export Data', icon: 'download-outline', action: 'export' },
+    { type: 'separator' },
+    { label: 'Toggle Theme', icon: 'moon-outline', action: 'theme' },
+  ];
+
+  const handleContextAction = (action) => {
+    switch (action) {
+      case 'add': navigation?.navigate?.('AddTransaction'); break;
+      case 'theme': if (useAppContext) { /* handled via context */ } break;
+    }
   };
 
   return (
-    <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
+    <ContextMenu menuItems={contextMenuItems} onAction={handleContextAction} colors={colors}>
+      <AnimatedScreen animation="fadeSlideUp">
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+          <StatusBar barStyle="light-content" />
 
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.logoRow}>
-            <View style={[styles.gemIcon, { backgroundColor: colors.primaryFaded }]}>
-              <Ionicons name="diamond" size={16} color={colors.primary} />
-            </View>
-            <Text style={[styles.appName, dynamicStyles.textPrimary]}>Sovereign Ledger</Text>
-          </View>
-          <View style={styles.userRow}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.avatarText, { color: '#FFF' }]}>AS</Text>
-            </View>
-            <View>
-              <Text style={[styles.userName, dynamicStyles.textPrimary]}>Alexander Sterling</Text>
-              <View style={styles.statusRow}>
-                <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
-                <Text style={[styles.statusText, { color: colors.success }]}>protected</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-        <TouchableOpacity style={[styles.notifBtn, dynamicStyles.surface]}>
-          <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <BalanceCard balance={balance} income={totalIncome} expenses={totalExpenses} currency={currency} />
-
-        <View style={styles.quickActions}>
-          {[
-            { label: 'Expense', icon: 'arrow-up', color: colors.danger, bg: colors.dangerFaded, screen: 'AddTransaction', params: { type: 'expense' } },
-            { label: 'Income', icon: 'arrow-down', color: colors.success, bg: colors.successFaded, screen: 'AddTransaction', params: { type: 'income' } },
-            { label: 'Budget', icon: 'wallet', color: colors.primary, bg: colors.primaryFaded, screen: 'BudgetTab' },
-            { label: 'Analytics', icon: 'bar-chart', color: colors.warning, bg: colors.warningFaded, screen: 'AnalyticsTab' },
-          ].map((action) => (
-            <TouchableOpacity key={action.label} style={styles.quickActionBtn} onPress={() => navigation.navigate(action.screen, action.params)}>
-              <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
-                <Ionicons name={action.icon} size={18} color={action.color} />
-              </View>
-              <Text style={[styles.quickActionText, dynamicStyles.textSecondary]}>{action.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Local Intelligence Insights Section */}
-        {insights.length > 0 && (
-          <View style={styles.insightsSection}>
-            <Text style={[styles.sectionTitle, dynamicStyles.textPrimary, { paddingHorizontal: Spacing.lg }]}>Smart Insights</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.insightsScroll}>
-              {insights.map((insight, idx) => (
-                <View key={idx} style={[styles.insightCard, dynamicStyles.surface, { borderLeftColor: insight.type === 'danger' ? colors.danger : insight.type === 'warning' ? colors.warning : colors.success, borderLeftWidth: 4 }]}>
-                  <View style={styles.insightHeader}>
-                    <Ionicons name={insight.icon} size={18} color={insight.type === 'danger' ? colors.danger : insight.type === 'warning' ? colors.warning : colors.success} />
-                    <Text style={[styles.insightTitle, dynamicStyles.textPrimary]}>{insight.title}</Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scrollContent, 
+              { 
+                paddingHorizontal: layout.containerPadding,
+                maxWidth: layout.maxContentWidth || 1200,
+                width: '100%',
+                alignSelf: 'center'
+              }
+            ]}
+            style={styles.scrollView}
+          >
+            {/* HERO SECTION */}
+            <View style={[styles.heroSection, {
+              backgroundColor: colors.heroBackground || colors.secondary,
+              paddingTop,
+              height: heroHeight,
+              borderBottomLeftRadius: layout.isDesktopLayout ? 24 : 32,
+              borderBottomRightRadius: layout.isDesktopLayout ? 24 : 32,
+              marginHorizontal: -layout.containerPadding, // Bleed out to edges
+            }]}>
+              <View style={styles.headerRow}>
+                <View style={styles.userInfo}>
+                  <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+                    <Text style={styles.avatarText}>AS</Text>
                   </View>
-                  <Text style={[styles.insightText, dynamicStyles.textSecondary]}>{insight.message}</Text>
+                  <View>
+                    <Text style={styles.greeting}>Good morning,</Text>
+                    <Text style={styles.userName}>Alexander Sterling</Text>
+                  </View>
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, dynamicStyles.textPrimary]}>{i18n.t('recent_transactions')}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('LedgerTab')}>
-              <Text style={[styles.seeAllText, { color: colors.primary }]}>{i18n.t('view_all')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.transactionList, dynamicStyles.surface]}>
-            {recentTransactions.length > 0 ? (
-              recentTransactions.map((t) => <TransactionItem key={t.id} transaction={t} currency={currency} />)
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="receipt-outline" size={40} color={colors.textMuted} />
-                <Text style={[styles.emptyText, dynamicStyles.textSecondary]}>{i18n.t('no_transactions')}</Text>
+                <TouchableOpacity style={styles.notifBtn}>
+                  <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+                  <View style={styles.notifDot} />
+                </TouchableOpacity>
               </View>
-            )}
-          </View>
+
+              <Animated.View style={[styles.balanceContainer, { opacity: balanceAnim, transform: [{ scale: balanceAnim }] }]}>
+                <Text style={styles.balanceLabel}>Total Balance</Text>
+                <Text style={[styles.balanceAmount, { fontSize: layout.isDesktopLayout ? 32 : 36 }]}>
+                  {formatCurrency(balance, currency)}
+                </Text>
+              </Animated.View>
+
+              <View style={styles.decor1} />
+              <View style={styles.decor2} />
+            </View>
+
+            <View style={{ marginTop: layout.isDesktopLayout ? -30 : -40 }}>
+              {/* SUMMARY CARDS */}
+              <View style={[styles.summaryRow, { paddingHorizontal: 0 }]}>
+                <AnimatedItem index={0}>
+                  <View style={[styles.summaryCard, styles.shadow, {
+                    backgroundColor: colors.surface,
+                    flex: 1,
+                    borderColor: themeMode === 'dark' ? colors.border : '#F3F4F6',
+                    borderWidth: 1,
+                  }]}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.successFaded }]}>
+                      <Ionicons name="arrow-down" size={18} color={colors.success} />
+                    </View>
+                    <View>
+                      <Text style={styles.summaryLabel}>INCOME</Text>
+                      <Text style={[styles.summaryValue, { color: colors.secondary }]}>
+                        {formatCurrency(totalIncome, currency)}
+                      </Text>
+                    </View>
+                  </View>
+                </AnimatedItem>
+
+                <AnimatedItem index={1}>
+                  <View style={[styles.summaryCard, styles.shadow, {
+                    backgroundColor: colors.surface,
+                    flex: 1,
+                    borderColor: themeMode === 'dark' ? colors.border : '#F3F4F6',
+                    borderWidth: 1,
+                  }]}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.dangerFaded }]}>
+                      <Ionicons name="arrow-up" size={18} color={colors.danger} />
+                    </View>
+                    <View>
+                      <Text style={styles.summaryLabel}>EXPENSES</Text>
+                      <Text style={[styles.summaryValue, { color: colors.secondary }]}>
+                        {formatCurrency(totalExpenses, currency)}
+                      </Text>
+                    </View>
+                  </View>
+                </AnimatedItem>
+              </View>
+
+              {/* RECENT TRANSACTIONS */}
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.secondary }]}>Recent Transaction</Text>
+                  <TouchableOpacity onPress={() => navigation?.navigate?.('Ledger')}>
+                    <Text style={styles.seeAll}>See All</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.transactionCard, styles.shadow, { 
+                  backgroundColor: colors.surface,
+                  borderColor: themeMode === 'dark' ? colors.border : '#F3F4F6',
+                  borderWidth: 1,
+                }]}>
+                  {recentTransactions.length > 0 ? (
+                    recentTransactions.map((t, idx) => (
+                      <AnimatedItem key={t.id} index={idx + 2}>
+                        <View>
+                          <TransactionItem transaction={t} currency={currency} />
+                          {idx < recentTransactions.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                        </View>
+                      </AnimatedItem>
+                    ))
+                  ) : (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="receipt-outline" size={48} color="#D1D5DB" />
+                      <Text style={styles.emptyText}>No recent transactions</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* FAB */}
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: colors.secondary }]}
+            onPress={() => navigation?.navigate?.('AddTransaction')}
+            accessibilityLabel="Add new transaction"
+            accessibilityRole="button"
+          >
+            <Ionicons name="add" size={32} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </View>
+      </AnimatedScreen>
+    </ContextMenu>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingBottom: 100 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.xl },
-  headerLeft: { gap: Spacing.md },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  gemIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  appName: { fontFamily: FontFamily.bold, fontSize: FontSize.xl },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontFamily: FontFamily.bold, fontSize: FontSize.md },
-  userName: { fontFamily: FontFamily.semiBold, fontSize: FontSize.lg },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontFamily: FontFamily.regular, fontSize: FontSize.sm },
-  notifBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, marginTop: Spacing.sm },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl },
-  quickActionBtn: { alignItems: 'center', gap: Spacing.sm },
-  quickActionIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  quickActionText: { fontFamily: FontFamily.medium, fontSize: FontSize.sm },
-  insightsSection: { marginVertical: Spacing.md },
-  insightsScroll: { paddingHorizontal: Spacing.lg, gap: Spacing.md, paddingBottom: Spacing.sm },
-  insightCard: { width: 260, borderRadius: BorderRadius.lg, padding: Spacing.lg, borderWidth: 1, ...Shadow.small },
-  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  insightTitle: { fontFamily: FontFamily.semiBold, fontSize: FontSize.md },
-  insightText: { fontFamily: FontFamily.regular, fontSize: FontSize.sm, lineHeight: 18 },
-  section: { marginTop: Spacing.sm },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
-  sectionTitle: { fontFamily: FontFamily.semiBold, fontSize: FontSize.xl },
-  seeAllText: { fontFamily: FontFamily.medium, fontSize: FontSize.md },
-  transactionList: { borderRadius: BorderRadius.lg, marginHorizontal: Spacing.lg, borderWidth: 1, overflow: 'hidden' },
-  emptyContainer: { alignItems: 'center', padding: Spacing.xxxl, gap: Spacing.sm },
-  emptyText: { fontFamily: FontFamily.semiBold, fontSize: FontSize.lg },
+  scrollView: { flex: 1 },
+  heroSection: {
+    paddingHorizontal: 24,
+    overflow: 'hidden',
+  },
+  headerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 2,
+  },
+  userInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  avatar: {
+    width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)',
+  },
+  avatarText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: 16 },
+  greeting: { color: 'rgba(255,255,255,0.7)', fontFamily: FontFamily.regular, fontSize: 13 },
+  userName: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: 16 },
+  notifBtn: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  notifDot: {
+    position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4,
+    backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#1B2141',
+  },
+  balanceContainer: { alignItems: 'center', marginTop: 24, zIndex: 2 },
+  balanceLabel: {
+    color: 'rgba(255,255,255,0.7)', fontFamily: FontFamily.medium, fontSize: 14, marginBottom: 8,
+  },
+  balanceAmount: { color: '#FFF', fontFamily: FontFamily.bold },
+  decor1: {
+    position: 'absolute', top: -50, right: -50, width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  decor2: {
+    position: 'absolute', bottom: -30, left: -20, width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  scrollContent: { paddingBottom: 120 },
+  summaryRow: { flexDirection: 'row', gap: 16 },
+  summaryCard: {
+    borderRadius: 20, flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12,
+  },
+  iconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  summaryLabel: { color: '#9CA3AF', fontFamily: FontFamily.bold, fontSize: 10, letterSpacing: 0.5 },
+  summaryValue: { fontFamily: FontFamily.bold, fontSize: 15 },
+  section: { marginTop: 32 },
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
+  },
+  sectionTitle: { fontFamily: FontFamily.bold, fontSize: 18 },
+  seeAll: { fontFamily: FontFamily.medium, fontSize: 14, color: '#9CA3AF' },
+  transactionCard: { borderRadius: 24, paddingVertical: 8 },
+  divider: { height: 1, marginHorizontal: 16 },
+  shadow: { ...Shadow.small, elevation: 3 },
+  emptyState: { alignItems: 'center', paddingVertical: 40, gap: 8 },
+  emptyText: { fontFamily: FontFamily.medium, fontSize: 14, color: '#9CA3AF' },
+  fab: {
+    position: 'absolute', bottom: 30, right: 24, width: 64, height: 64, borderRadius: 32,
+    alignItems: 'center', justifyContent: 'center', ...Shadow.medium, elevation: 5,
+  },
 });
 
 export default DashboardScreen;

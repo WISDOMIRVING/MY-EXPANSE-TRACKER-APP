@@ -19,328 +19,172 @@ const ChangePasswordScreen = ({ navigation }) => {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Password requirements
   const requirements = useMemo(() => {
     return [
-      {
-        label: 'At least 12 characters long',
-        met: newPassword.length >= 12,
-      },
-      {
-        label: 'Contains uppercase & lowercase',
-        met: /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword),
-      },
-      {
-        label: 'Contains a number or special symbol',
-        met: /[0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword),
-      },
-      {
-        label: "Doesn't resemble previous passwords",
-        met: newPassword.length > 0 && newPassword !== currentPassword,
-      },
+      { label: 'At least 12 characters long', met: newPassword.length >= 12 },
+      { label: 'Contains uppercase & lowercase', met: /[a-z]/.test(newPassword) && /[A-Z]/.test(newPassword) },
+      { label: 'Contains a number or special symbol', met: /[0-9!@#$%^&*]/.test(newPassword) },
+      { label: "Doesn't resemble previous passwords", met: newPassword.length > 0 && newPassword !== currentPassword },
     ];
   }, [newPassword, currentPassword]);
 
-  const allRequirementsMet = requirements.every(r => r.met);
-  const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
-  const canSubmit = currentPassword.length > 0 && allRequirementsMet && passwordsMatch;
+  const strength = useMemo(() => {
+    const metCount = requirements.filter(r => r.met).length;
+    return metCount;
+  }, [requirements]);
 
-  const handleUpdatePassword = () => {
-    if (!canSubmit) return;
-    Alert.alert(
-      'Password Updated',
-      'Your password has been successfully updated.',
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
-  };
+  const canSubmit = currentPassword.length > 0 && strength === 4 && newPassword === confirmPassword;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-
+    <View style={[styles.container, { backgroundColor: '#FFFFFF', paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" />
+      
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+          <Ionicons name="chevron-back" size={24} color="#1B2141" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Change Password</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 44 }} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.formContainer}
-        keyboardShouldPersistTaps="handled"
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* Lock Icon */}
-        <View style={styles.lockIconContainer}>
-          <View style={styles.lockIcon}>
-            <Ionicons name="lock-closed" size={32} color={Colors.primary} />
+        <View style={styles.iconContainer}>
+           <View style={styles.iconCircle}>
+              <Ionicons name="lock-closed" size={32} color="#1B2141" />
+           </View>
+        </View>
+
+        <Text style={styles.mainTitle}>Change Password</Text>
+        <Text style={styles.subtitle}>Update your password to keep your account secure and protected.</Text>
+
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>CURRENT PASSWORD</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput 
+                style={styles.input} 
+                secureTextEntry={!showCurrent}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="Enter current password"
+              />
+              <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)}>
+                 <Ionicons name={showCurrent ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>NEW PASSWORD</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput 
+                style={styles.input} 
+                secureTextEntry={!showNew}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="Enter new password"
+              />
+              <TouchableOpacity onPress={() => setShowNew(!showNew)}>
+                 <Ionicons name={showNew ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Strength Bars */}
+            <View style={styles.strengthRow}>
+              {[1, 2, 3, 4].map((i) => (
+                <View 
+                  key={i} 
+                  style={[
+                    styles.strengthBar, 
+                    { backgroundColor: i <= strength ? '#10B981' : '#F3F4F6' }
+                  ]} 
+                />
+              ))}
+              <Text style={styles.strengthText}>
+                {strength === 0 ? '' : strength < 3 ? 'Weak' : strength < 4 ? 'Strong' : 'Very Strong'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.requirements}>
+            {requirements.map((req) => (
+              <View key={req.label} style={styles.reqItem}>
+                <Ionicons 
+                  name={req.met ? 'checkmark-circle' : 'checkmark-circle-outline'} 
+                  size={18} 
+                  color={req.met ? '#10B981' : '#E5E7EB'} 
+                />
+                <Text style={[styles.reqText, req.met && { color: '#1B2141' }]}>{req.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>CONFIRM NEW PASSWORD</Text>
+            <View style={styles.inputWrapper}>
+              <TextInput 
+                style={styles.input} 
+                secureTextEntry={!showConfirm}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Re-enter new password"
+              />
+              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                 <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
-        <Text style={styles.description}>
-          Choose a strong password to protect your financial data. Your password must meet all requirements below.
-        </Text>
-
-        {/* Current Password */}
-        <Text style={styles.inputLabel}>CURRENT PASSWORD</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter current password"
-            placeholderTextColor={Colors.inputPlaceholder}
-            secureTextEntry={!showCurrent}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeBtn}
-            onPress={() => setShowCurrent(!showCurrent)}
-          >
-            <Ionicons
-              name={showCurrent ? 'eye-off' : 'eye'}
-              size={20}
-              color={Colors.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* New Password */}
-        <Text style={styles.inputLabel}>NEW PASSWORD</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter new password"
-            placeholderTextColor={Colors.inputPlaceholder}
-            secureTextEntry={!showNew}
-            value={newPassword}
-            onChangeText={setNewPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeBtn}
-            onPress={() => setShowNew(!showNew)}
-          >
-            <Ionicons
-              name={showNew ? 'eye-off' : 'eye'}
-              size={20}
-              color={Colors.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Requirements */}
-        <View style={styles.requirementsList}>
-          {requirements.map((req) => (
-            <View key={req.label} style={styles.requirementItem}>
-              <Ionicons
-                name={req.met ? 'checkmark-circle' : 'ellipse-outline'}
-                size={18}
-                color={req.met ? Colors.success : Colors.textMuted}
-              />
-              <Text style={[styles.requirementText, req.met && styles.requirementMet]}>
-                {req.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Confirm Password */}
-        <Text style={styles.inputLabel}>CONFIRM NEW PASSWORD</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Re-enter new password"
-            placeholderTextColor={Colors.inputPlaceholder}
-            secureTextEntry={!showConfirm}
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-          />
-          <TouchableOpacity
-            style={styles.eyeBtn}
-            onPress={() => setShowConfirm(!showConfirm)}
-          >
-            <Ionicons
-              name={showConfirm ? 'eye-off' : 'eye'}
-              size={20}
-              color={Colors.textMuted}
-            />
-          </TouchableOpacity>
-        </View>
-        {confirmPassword.length > 0 && !passwordsMatch && (
-          <Text style={styles.errorText}>Passwords do not match</Text>
-        )}
-
-        {/* Update Button */}
-        <TouchableOpacity
-          style={[styles.updateBtn, !canSubmit && styles.updateBtnDisabled]}
-          onPress={handleUpdatePassword}
+        <TouchableOpacity 
+          style={[styles.updateBtn, { backgroundColor: canSubmit ? '#1B2141' : '#E5E7EB' }]}
           disabled={!canSubmit}
+          onPress={() => {
+            Alert.alert('Success', 'Password updated successfully');
+            navigation.goBack();
+          }}
         >
-          <Ionicons name="shield-checkmark" size={18} color={Colors.textPrimary} />
-          <Text style={styles.updateBtnText}>Update Password</Text>
+          <Text style={styles.updateText}>Update Password</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => navigation.goBack()}>
+           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
-
-        <View style={styles.footerNote}>
-          <Ionicons name="lock-closed" size={12} color={Colors.textMuted} />
-          <Text style={styles.footerNoteText}>
-            Your password is encrypted end-to-end
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  headerTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.xl,
-    color: Colors.textPrimary,
-  },
-  formContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.massive,
-  },
-  lockIconContainer: {
-    alignItems: 'center',
-    marginVertical: Spacing.xxl,
-  },
-  lockIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.primaryFaded,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(47, 124, 246, 0.3)',
-  },
-  description: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.xxl,
-  },
-  inputLabel: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.xs,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.lg,
-    letterSpacing: 1,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  input: {
-    flex: 1,
-    padding: Spacing.lg,
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textPrimary,
-  },
-  eyeBtn: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  requirementsList: {
-    marginTop: Spacing.lg,
-    gap: Spacing.md,
-  },
-  requirementItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  requirementText: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
-    color: Colors.textMuted,
-  },
-  requirementMet: {
-    color: Colors.success,
-  },
-  errorText: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
-    color: Colors.danger,
-    marginTop: Spacing.xs,
-  },
-  updateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.lg,
-    marginTop: Spacing.xxl,
-  },
-  updateBtnDisabled: {
-    opacity: 0.4,
-  },
-  updateBtnText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.lg,
-    color: Colors.textPrimary,
-  },
-  cancelBtn: {
-    paddingVertical: Spacing.lg,
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
-  },
-  footerNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: Spacing.sm,
-  },
-  footerNoteText: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
-  },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontFamily: FontFamily.bold, fontSize: 18, color: '#1B2141' },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 60 },
+  iconContainer: { alignItems: 'center', marginVertical: 32 },
+  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  mainTitle: { fontFamily: FontFamily.bold, fontSize: 24, color: '#1B2141', textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontFamily: FontFamily.medium, fontSize: 14, color: '#9CA3AF', textAlign: 'center', marginBottom: 40, lineHeight: 22 },
+  form: { gap: 24 },
+  inputGroup: { gap: 8 },
+  label: { fontFamily: FontFamily.bold, fontSize: 10, color: '#9CA3AF', letterSpacing: 1 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', height: 52, borderWidth: 1, borderColor: '#F3F4F6', borderRadius: 12, paddingHorizontal: 16 },
+  input: { flex: 1, fontFamily: FontFamily.medium, fontSize: 15, color: '#1B2141' },
+  strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
+  strengthBar: { flex: 1, height: 4, borderRadius: 2 },
+  strengthText: { fontFamily: FontFamily.bold, fontSize: 10, color: '#10B981', marginLeft: 8 },
+  requirements: { gap: 12, marginVertical: 8 },
+  reqItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  reqText: { fontFamily: FontFamily.medium, fontSize: 13, color: '#9CA3AF' },
+  updateBtn: { height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 40 },
+  updateText: { fontFamily: FontFamily.bold, fontSize: 16, color: '#FFF' },
+  cancelBtn: { paddingVertical: 16, alignItems: 'center' },
+  cancelText: { fontFamily: FontFamily.bold, fontSize: 14, color: '#9CA3AF' },
 });
 
 export default ChangePasswordScreen;

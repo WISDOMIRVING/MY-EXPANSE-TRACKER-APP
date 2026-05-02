@@ -1,35 +1,65 @@
 {
   "expo": {
-    "name": "MY-EXPENSE-TRACKER-APP",
+    "name": "Sovereign Ledger",
     "slug": "MY-EXPENSE-TRACKER-APP",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "version": "2.0.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1B2141"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sovereign.ledger"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1B2141"
       },
       "package": "com.sovereign.ledger",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Sovereign Ledger — Expense Tracker",
+      "shortName": "Ledger",
+      "description": "A premium cross-platform expense tracker. Track spending, manage budgets, gain insights.",
+      "backgroundColor": "#FFFFFF",
+      "themeColor": "#1B2141"
     },
     "extra": {
       "eas": {
         "projectId": "c56c0486-94f8-416a-8937-37126ea27e1c"
       }
-    }
+    },
+    "plugins": [
+      "expo-localization",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Sovereign Ledger to use the camera for identity verification."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0047BB"
+        }
+      ],
+      "expo-local-authentication"
+    ]
   }
 }

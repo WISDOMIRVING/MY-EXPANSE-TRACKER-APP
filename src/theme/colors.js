@@ -1,58 +1,89 @@
 // Sovereign Ledger — Pixel Perfect Design Tokens
 export const LightTheme = {
-  primary: '#0047BB',
-  primaryFaded: '#E6EEF8',
-  secondary: '#1A1C1E',
-  background: '#F8F9FB',
-  surface: '#FFFFFF',
-  border: '#EEF0F2',
-  textPrimary: '#1A1C1E',
-  textSecondary: '#6C7278',
-  textMuted: '#999DA3',
-  success: '#00C48C',
-  successFaded: '#E6F9F4',
-  warning: '#FF8A00',
-  warningFaded: '#FFF4E6',
-  danger: '#FF3B30',
-  dangerFaded: '#FFEBEA',
-  info: '#007AFF',
-  infoFaded: '#E6F2FF',
-  toggleInactive: '#E2E2E2',
+  // Brand & Accents
+  primary: '#2563EB', // Modern accessible blue (WCAG AA on white)
+  primaryFaded: 'rgba(37, 99, 235, 0.1)',
+  secondary: '#0F172A', // Slate 900 for high-contrast headers
   
-  // Category specific colors from Figma
-  housing: '#0047BB',
-  food: '#00C48C',
-  transport: '#007AFF',
-  shopping: '#FF3B30',
-  other: '#6C7278',
+  // Backgrounds & Surfaces
+  background: '#F8FAFC', // Slate 50 (Soft, reduces eye strain vs pure white)
+  surface: '#FFFFFF', // Pure white for cards to pop against background
+  surfaceElevated: '#FFFFFF',
+  heroBackground: '#0F172A', // Deep slate for hero sections
+  
+  // Borders
+  border: '#E2E8F0', // Slate 200
+  
+  // Typography
+  textPrimary: '#0F172A', // Slate 900
+  textSecondary: '#475569', // Slate 600
+  textMuted: '#94A3B8', // Slate 400
+  
+  // Semantic Colors (WCAG compliant)
+  success: '#059669', // Emerald 600
+  successFaded: '#D1FAE5',
+  warning: '#D97706', // Amber 600
+  warningFaded: '#FEF3C7',
+  danger: '#DC2626', // Red 600
+  dangerFaded: '#FEE2E2',
+  info: '#2563EB', // Blue 600
+  infoFaded: '#DBEAFE',
+  toggleInactive: '#CBD5E1', // Slate 300
+  
+  // Category specific colors
+  housing: '#2563EB',
+  food: '#059669',
+  transport: '#8B5CF6',
+  shopping: '#DC2626',
+  other: '#64748B',
 };
 
 export const DarkTheme = {
-  primary: '#3D8BFF',
-  primaryFaded: 'rgba(61, 139, 255, 0.15)',
-  secondary: '#F8F9FB',
-  background: '#0F1113',
-  surface: '#1A1C1E',
-  border: '#2A2D31',
-  textPrimary: '#F8F9FB',
-  textSecondary: '#999DA3',
-  textMuted: '#6C7278',
-  success: '#00D89A',
-  successFaded: 'rgba(0, 216, 154, 0.15)',
-  warning: '#FFA333',
-  warningFaded: 'rgba(255, 163, 51, 0.15)',
-  danger: '#FF5C5C',
-  dangerFaded: 'rgba(255, 92, 92, 0.15)',
-  info: '#3D8BFF',
-  infoFaded: 'rgba(61, 139, 255, 0.15)',
-  toggleInactive: '#3A3D42',
+  // Brand & Accents
+  primary: '#3B82F6', // Blue 500 (Brighter for dark mode visibility)
+  primaryFaded: 'rgba(59, 130, 246, 0.15)',
+  secondary: '#F8FAFC', // Slate 50 for text/icons
+  
+  // Backgrounds & Surfaces
+  background: '#0B1120', // True deep dark
+  surface: '#1E293B', // Slate 800 for cards
+  surfaceElevated: '#334155', // Slate 700 for modals/dropdowns
+  heroBackground: '#0B1120', // Matches background
+  
+  // Borders
+  border: '#334155', // Slate 700 (Subtle separation)
+  
+  // Typography
+  textPrimary: '#F8FAFC', // Slate 50
+  textSecondary: '#94A3B8', // Slate 400
+  textMuted: '#64748B', // Slate 500
+  
+  // Semantic Colors (Dark-mode optimized, slightly brighter)
+  success: '#10B981', // Emerald 500
+  successFaded: 'rgba(16, 185, 129, 0.15)',
+  warning: '#F59E0B', // Amber 500
+  warningFaded: 'rgba(245, 158, 11, 0.15)',
+  danger: '#EF4444', // Red 500
+  dangerFaded: 'rgba(239, 68, 68, 0.15)',
+  info: '#3B82F6', // Blue 500
+  infoFaded: 'rgba(59, 130, 246, 0.15)',
+  toggleInactive: '#475569', // Slate 600
 
   // Category specific colors (Dark optimized)
-  housing: '#3D8BFF',
-  food: '#00D89A',
-  transport: '#3D8BFF',
-  shopping: '#FF5C5C',
-  other: '#999DA3',
+  housing: '#3B82F6',
+  food: '#10B981',
+  transport: '#A855F7',
+  shopping: '#EF4444',
+  other: '#94A3B8',
 };
 
-export default { LightTheme, DarkTheme };
+// Backward-compatible flat exports for non-themed components
+export const Colors = {
+  ...LightTheme,
+  primary: LightTheme.primary,
+  toggleActive: '#10B981',
+  toggleThumb: '#FFFFFF',
+  textInverse: '#FFFFFF',
+};
+
+export default Colors;

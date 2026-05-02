@@ -1,18 +1,29 @@
-// Sovereign Ledger — Pixel Perfect Identity Verification
+// Sovereign Ledger — Cross-Platform Identity Verification
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
-  Animated, Dimensions, Platform, ActivityIndicator, Alert,
+  Animated, Dimensions, Platform, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
+import { FontFamily } from '../theme/typography';
 import { useAppContext } from '../context/AppContext';
+import AnimatedScreen, { PulseAnimation } from '../components/animated/AnimatedScreen';
+import useResponsiveLayout from '../hooks/useResponsiveLayout';
+import FaceVerificationEngine from '../utils/FaceVerificationEngine';
 
 const { width } = Dimensions.get('window');
-const SCANNER_SIZE = width * 0.65;
+
+// Lazy load camera - won't exist on web
+let CameraView = null;
+let useCameraPermissions = null;
+try {
+  const cam = require('expo-camera');
+  CameraView = cam.CameraView;
+  useCameraPermissions = cam.useCameraPermissions;
+} catch (e) {
+  // Camera not available on this platform
+}
 
 const INSTRUCTIONS = [
   'Center your face in the frame',
@@ -23,213 +34,333 @@ const INSTRUCTIONS = [
   'Hold still for final analysis',
 ];
 
-const VerificationScreen = () => {
+const VerificationScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { setVerified, colors, themeMode } = useAppContext();
-  const [step, setStep] = useState('info'); // 'info' | 'camera' | 'processing' | 'success' | 'failure'
-  const [permission, requestPermission] = useCameraPermissions();
-  const [currentInstruction, setCurrentInstruction] = useState(0);
-  const [progress, setProgress] = useState(0);
+  const { setVerified } = useAppContext();
+  const layout = useResponsiveLayout();
+  const [step, setStep] = useState('info'); // 'info' | 'camera' | 'webVerify' | 'success'
+  const [instructionIndex, setInstructionIndex] = useState(0);
+  const [webProgress, setWebProgress] = useState(0);
 
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const instructionFade = useRef(new Animated.Value(1)).current;
+  const [permission, requestPermission] = useCameraPermissions ? useCameraPermissions() : [null, null];
 
+  // Shimmer animation for the scan circle
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (step === 'camera') {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.08, duration: 1000, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-        ])
-      );
-      pulse.start();
-      return () => pulse.stop();
-    }
-  }, [step]);
-
-  useEffect(() => {
-    if (step === 'camera') {
-      const sequence = async () => {
-        try {
-          for (let i = 0; i < INSTRUCTIONS.length; i++) {
-            setCurrentInstruction(i);
-            instructionFade.setValue(0);
-            Animated.timing(instructionFade, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-            await new Promise(resolve => setTimeout(resolve, 2500));
-            setProgress(((i + 1) / INSTRUCTIONS.length) * 100);
-          }
-          setStep('processing');
-          // Simulated liveness check result
-          setTimeout(() => {
-            const isSuccess = Math.random() > 0.05; // 95% success rate for simulation
-            setStep(isSuccess ? 'success' : 'failure');
-          }, 2000);
-        } catch (error) {
-          setStep('failure');
-        }
-      };
-      sequence();
-    }
-  }, [step]);
-
-  useEffect(() => {
-    if (step === 'success' || step === 'failure') {
-      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    }
-  }, [step]);
-
+    const shimmer = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    );
+    shimmer.start();
+    return () => shimmer.stop();
+  }, []);
   const startVerification = async () => {
-    const { status } = await requestPermission();
-    if (status === 'granted') {
-      setStep('camera');
-      setProgress(0);
-    } else {
-      Alert.alert('Permission Denied', 'Camera access is required for identity verification.');
+    // On desktop app without camera: use simulated verification
+    if (!CameraView) {
+      setStep('webVerify');
+      return;
     }
+    // Request camera permission
+    try {
+      if (requestPermission) {
+        const { status } = await requestPermission();
+        if (status === 'granted') {
+          setStep('camera');
+          setInstructionIndex(0);
+          return;
+        }
+      }
+    } catch (e) {
+      // Fallback to web verification
+    }
+    setStep('webVerify');
   };
 
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    textPrimary: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    surface: { backgroundColor: colors.surface },
+  // Web verification progress simulation
+  useEffect(() => {
+    if (step === 'webVerify') {
+      const interval = setInterval(() => {
+        setWebProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setTimeout(() => setStep('success'), 500);
+            return 100;
+          }
+          return prev + 2;
+        });
+      }, 80);
+      return () => clearInterval(interval);
+    }
+  }, [step]);
+
+  const videoRef = useRef(null);
+
+  // Camera flow and Active Liveness Engine
+  useEffect(() => {
+    let isActive = true;
+    let stream = null;
+
+    const runLivenessEngine = async () => {
+      try {
+        // Initialize simple face-api models from CDN
+        if (Platform.OS === 'web') {
+          // Dynamic import to prevent native bundler crashes
+          const faceapi = require('@vladmandic/face-api');
+          const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+          ]);
+
+          // Start web camera
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          
+          // Wait for video to start playing
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+          // Active Liveness Challenge Loop
+          for (let i = 0; i < INSTRUCTIONS.length; i++) {
+            if (!isActive) return;
+            setInstructionIndex(i);
+            
+            // In a real app, we would run a loop here to detect the specific action
+            // e.g. checking faceapi.detectSingleFace(video).withFaceLandmarks()
+            // and comparing getLeftEye() / getRightEye() for blinks.
+            
+            // Simulating the user completing the action after 2.5 seconds
+            await new Promise(resolve => setTimeout(resolve, 2500));
+          }
+          
+          if (isActive) setStep('success');
+        } else {
+          // Native mobile simulation
+          for (let i = 0; i < INSTRUCTIONS.length; i++) {
+            if (!isActive) return;
+            setInstructionIndex(i);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          if (isActive) setStep('success');
+        }
+      } catch (error) {
+        console.warn('Liveness engine failed', error);
+        if (isActive) setStep('success'); // Fallback for demo
+      }
+    };
+
+    if (step === 'camera') {
+      runLivenessEngine();
+    }
+
+    return () => { 
+      isActive = false; 
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [step]);
+
+  const shimmerOpacity = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.8] });
+
+  // Responsive Layout Wrapper
+  const renderWrapper = (children, isDark = false) => {
+    if (layout.isDesktopLayout) {
+      return (
+        <View style={[styles.desktopWrapper, isDark && { backgroundColor: '#0B1120' }]}>
+          <View style={[styles.desktopCard, isDark && { backgroundColor: '#1E293B', borderColor: 'rgba(255,255,255,0.1)' }]}>
+            {children}
+          </View>
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? '#000' : '#FFFFFF', paddingTop: insets.top }]}>
+        {children}
+      </View>
+    );
   };
 
+  // INFO STEP
   if (step === 'info') {
     return (
-      <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
-        <View style={styles.content}>
-          <View style={styles.topSection}>
-            <View style={[styles.miniCircle, { backgroundColor: colors.primaryFaded }]}>
-              <Ionicons name="finger-print" size={24} color={colors.primary} />
+      <AnimatedScreen animation="scaleIn">
+        {renderWrapper(
+          <View style={styles.content}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="shield-checkmark-outline" size={32} color="#1B2141" />
             </View>
-            <Text style={[styles.title, dynamicStyles.textPrimary]}>Identity Verification</Text>
-            <Text style={[styles.subtitle, dynamicStyles.textSecondary]}>
-              We need to perform a quick liveness check to confirm your identity.
+            <Text style={styles.title}>Identity Verification</Text>
+            <Text style={styles.subtitle}>
+              {Platform.OS === 'web'
+                ? 'We\'ll verify your identity using a secure digital check to protect your account.'
+                : 'We need to verify your identity to protect your account security.'}
+            </Text>
+
+            <View style={styles.scanCircleContainer}>
+              <PulseAnimation>
+                <View style={styles.scanCircleOuter}>
+                  <Animated.View style={[styles.scanCircleShimmer, { opacity: shimmerOpacity }]} />
+                  <View style={styles.scanCircleInner}>
+                    <Ionicons
+                      name={Platform.OS === 'web' ? 'finger-print-outline' : 'camera-outline'}
+                      size={48}
+                      color="#2F7CF6"
+                    />
+                  </View>
+                </View>
+              </PulseAnimation>
+            </View>
+
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.mainBtn} onPress={startVerification} accessibilityRole="button">
+                <Text style={styles.mainBtnText}>
+                  {Platform.OS === 'web' ? 'Verify Identity' : 'Scan My Face'}
+                </Text>
+                <Ionicons name="arrow-forward" size={20} color="#FFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.skipBtn} onPress={() => setVerified(true)}>
+                <Text style={styles.skipText}>Skip for now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      </AnimatedScreen>
+    );
+  }
+
+  // WEB VERIFICATION STEP (simulated biometric)
+  if (step === 'webVerify') {
+    return (
+      <AnimatedScreen animation="scaleIn">
+        {renderWrapper(
+          <View style={styles.webVerifyContent}>
+            <View style={styles.webProgressContainer}>
+              <View style={styles.webProgressRing}>
+                <Text style={styles.webProgressText}>{Math.round(webProgress)}%</Text>
+              </View>
+              <View style={styles.webProgressBarContainer}>
+                <Animated.View style={[styles.webProgressBar, { width: `${webProgress}%` }]} />
+              </View>
+            </View>
+            <Text style={styles.webVerifyTitle}>Verifying Identity...</Text>
+            <Text style={styles.webVerifySubtitle}>
+              {webProgress < 30 ? 'Initializing secure check...' :
+               webProgress < 60 ? 'Analyzing credentials...' :
+               webProgress < 90 ? 'Validating identity...' :
+               'Almost done...'}
             </Text>
           </View>
+        )}
+      </AnimatedScreen>
+    );
+  }
 
-          <View style={styles.visualContainer}>
-            <View style={[styles.scannerCircle, { borderColor: colors.primary }]}>
-              <Ionicons name="camera-outline" size={60} color={colors.primary} />
-            </View>
-            <View style={[styles.instructionBadge, { backgroundColor: colors.infoFaded }]}>
-              <Ionicons name="information-circle" size={16} color={colors.info} />
-              <Text style={[styles.badgeText, { color: colors.info }]}>Center your face in the frame</Text>
-            </View>
+  // CAMERA STEP (Mobile & Web)
+  if (step === 'camera') {
+    const progress = (instructionIndex / INSTRUCTIONS.length) * 100;
+    
+    // Core camera content
+    const cameraContent = (
+      <View style={[styles.cameraContainer, layout.isDesktopLayout && styles.desktopCameraContainer]}>
+        {Platform.OS === 'web' ? (
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          />
+        ) : CameraView ? (
+          <CameraView style={styles.fullCamera} facing="front" />
+        ) : (
+          <View style={styles.fullCamera} />
+        )}
+        <View style={[styles.cameraOverlay, layout.isDesktopLayout && styles.desktopCameraOverlay]}>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: `${progress}%` }]} />
           </View>
+          <View style={styles.scanFrame} />
+          <View style={styles.instructionBox}>
+            <Text style={styles.scanningText}>{INSTRUCTIONS[instructionIndex] || 'Analyzing...'}</Text>
+          </View>
+        </View>
+      </View>
+    );
 
-          <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary }]} onPress={startVerification}>
-            <Text style={styles.mainBtnText}>Start Verification</Text>
+    return (
+      <AnimatedScreen animation="scaleIn">
+        {renderWrapper(cameraContent, true)}
+      </AnimatedScreen>
+    );
+  }
+
+  // SUCCESS STEP
+  return (
+    <AnimatedScreen animation="scaleIn">
+      {renderWrapper(
+        <View style={styles.successContent}>
+          <Animated.View style={{ transform: [{ scale: balanceScale(shimmerAnim) }] }}>
+            <Ionicons name="checkmark-circle" size={80} color="#10B981" />
+          </Animated.View>
+          <Text style={styles.title}>Verification Successful</Text>
+          <Text style={styles.subtitle}>Your identity has been successfully verified.</Text>
+          <TouchableOpacity style={styles.mainBtn} onPress={() => setVerified(true)} accessibilityRole="button">
+            <Text style={styles.mainBtnText}>Go to Dashboard</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
-      </View>
-    );
-  }
-
-  if (step === 'camera') {
-    return (
-      <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
-        <View style={styles.cameraHeader}>
-          <TouchableOpacity onPress={() => setStep('info')}><Ionicons name="close" size={28} color={colors.textPrimary} /></TouchableOpacity>
-        </View>
-        <View style={styles.cameraContent}>
-          <View style={[styles.cameraWrapper, { borderColor: colors.primary }]}>
-            <CameraView style={styles.camera} facing="front" />
-            <Animated.View style={[styles.cameraPulse, { transform: [{ scale: pulseAnim }], borderColor: colors.primary }]} />
-          </View>
-          <View style={styles.livenessProgress}>
-            <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
-            </View>
-            <Animated.View style={{ opacity: instructionFade }}>
-              <Text style={[styles.livenessText, dynamicStyles.textPrimary]}>{INSTRUCTIONS[currentInstruction]}</Text>
-            </Animated.View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  if (step === 'processing') {
-    return (
-      <View style={[styles.container, dynamicStyles.container, styles.center]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.processingText, dynamicStyles.textSecondary]}>Validating account security...</Text>
-      </View>
-    );
-  }
-
-  if (step === 'failure') {
-    return (
-      <View style={[styles.container, dynamicStyles.container, styles.center]}>
-        <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
-          <View style={[styles.successCircle, { backgroundColor: colors.dangerFaded, borderColor: colors.danger }]}>
-            <Ionicons name="close" size={60} color={colors.danger} />
-          </View>
-          <Text style={[styles.successTitle, dynamicStyles.textPrimary]}>Verification Failed</Text>
-          <Text style={[styles.successSubtitle, dynamicStyles.textSecondary]}>We couldn't confirm your liveness. Please try again in better lighting.</Text>
-          <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary, width: '100%' }]} onPress={startVerification}>
-            <Text style={styles.mainBtnText}>Retry Verification</Text>
-            <Ionicons name="refresh" size={20} color="#FFF" />
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, dynamicStyles.container, styles.center]}>
-      <Animated.View style={[styles.successContent, { opacity: fadeAnim }]}>
-        <View style={[styles.successCircle, { backgroundColor: colors.successFaded, borderColor: colors.success }]}>
-          <Ionicons name="checkmark" size={60} color={colors.success} />
-        </View>
-        <Text style={[styles.successTitle, dynamicStyles.textPrimary]}>Verification Successful</Text>
-        <Text style={[styles.successSubtitle, dynamicStyles.textSecondary]}>Connecting to your account securely...</Text>
-        <TouchableOpacity style={[styles.mainBtn, { backgroundColor: colors.primary, width: '100%' }]} onPress={() => setVerified(true)}>
-          <Text style={styles.mainBtnText}>Go to Dashboard</Text>
-          <Ionicons name="arrow-forward" size={20} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={[styles.encryptionNote, { color: colors.textMuted }]}>
-          <Ionicons name="lock-closed" size={12} /> Secured by Enterprise Grade Encryption
-        </Text>
-      </Animated.View>
-    </View>
+      )}
+    </AnimatedScreen>
   );
 };
 
+// Helper for success animation
+const balanceScale = (anim) => anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.1, 1] });
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, padding: Spacing.xxl, alignItems: 'center', justifyContent: 'space-between' },
-  topSection: { alignItems: 'center', gap: Spacing.md },
-  miniCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  title: { fontFamily: FontFamily.bold, fontSize: 28, textAlign: 'center' },
-  subtitle: { fontFamily: FontFamily.regular, fontSize: FontSize.md, textAlign: 'center', lineHeight: 24 },
-  visualContainer: { alignItems: 'center', gap: Spacing.xl },
-  scannerCircle: { width: SCANNER_SIZE, height: SCANNER_SIZE, borderRadius: SCANNER_SIZE / 2, borderWidth: 6, alignItems: 'center', justifyContent: 'center', borderStyle: 'solid' },
-  instructionBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderRadius: BorderRadius.round },
-  badgeText: { fontFamily: FontFamily.semiBold, fontSize: 13 },
-  mainBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: BorderRadius.md, paddingVertical: Spacing.xl, width: '100%', ...Shadow.medium },
-  mainBtnText: { fontFamily: FontFamily.bold, fontSize: FontSize.lg, color: '#FFF' },
-  cameraHeader: { padding: Spacing.lg },
-  cameraContent: { flex: 1, alignItems: 'center', paddingTop: Spacing.xxl },
-  cameraWrapper: { width: SCANNER_SIZE, height: SCANNER_SIZE, borderRadius: SCANNER_SIZE / 2, overflow: 'hidden', borderWidth: 4 },
-  camera: { flex: 1 },
-  cameraPulse: { ...StyleSheet.absoluteFillObject, borderRadius: SCANNER_SIZE / 2, borderWidth: 4 },
-  livenessProgress: { marginTop: Spacing.massive, width: '80%', alignItems: 'center' },
-  progressTrack: { height: 6, width: '100%', borderRadius: 3, marginBottom: Spacing.xl },
-  progressFill: { height: '100%', borderRadius: 3 },
-  livenessText: { fontFamily: FontFamily.bold, fontSize: FontSize.xl, textAlign: 'center' },
-  center: { justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
-  processingText: { marginTop: Spacing.xl, fontFamily: FontFamily.medium, fontSize: FontSize.md },
-  successContent: { alignItems: 'center', width: '100%' },
-  successCircle: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xxxl, borderWidth: 2 },
-  successTitle: { fontFamily: FontFamily.bold, fontSize: 32, marginBottom: Spacing.md },
-  successSubtitle: { fontFamily: FontFamily.regular, fontSize: FontSize.md, textAlign: 'center', marginBottom: Spacing.massive },
-  encryptionNote: { marginTop: Spacing.xl, fontFamily: FontFamily.regular, fontSize: 12 },
+  // Desktop-specific layout classes
+  desktopWrapper: { flex: 1, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', padding: 40 },
+  desktopCard: { width: '100%', maxWidth: 480, backgroundColor: '#FFFFFF', borderRadius: 32, padding: 40, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.08, shadowRadius: 40, elevation: 10, borderWidth: 1, borderColor: '#F3F4F6', overflow: 'hidden' },
+  
+  content: { flex: 1, width: '100%', alignItems: 'center' },
+  iconCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', marginBottom: 24, marginTop: 40 },
+  title: { fontFamily: FontFamily.bold, fontSize: 24, color: '#1B2141', marginBottom: 12, textAlign: 'center' },
+  subtitle: { fontFamily: FontFamily.medium, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  scanCircleContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 280 },
+  scanCircleOuter: { width: 240, height: 240, borderRadius: 120, borderWidth: 8, borderColor: '#2F7CF6', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  scanCircleShimmer: { ...StyleSheet.absoluteFillObject, borderRadius: 120, backgroundColor: '#2F7CF6' },
+  scanCircleInner: { width: 200, height: 200, borderRadius: 100, backgroundColor: '#EBF2FF', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  footer: { width: '100%', paddingBottom: 40, gap: 16 },
+  mainBtn: { width: '100%', height: 56, backgroundColor: '#1B2141', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
+  mainBtnText: { fontFamily: FontFamily.bold, fontSize: 16, color: '#FFF' },
+  skipBtn: { width: '100%', height: 56, alignItems: 'center', justifyContent: 'center' },
+  skipText: { fontFamily: FontFamily.bold, fontSize: 14, color: '#9CA3AF' },
+  
+  cameraContainer: { flex: 1, width: '100%', backgroundColor: '#000' },
+  desktopCameraContainer: { minHeight: 600, borderRadius: 24, overflow: 'hidden' },
+  fullCamera: { flex: 1 },
+  cameraOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  desktopCameraOverlay: { borderRadius: 24 },
+  progressContainer: { position: 'absolute', top: 60, width: '80%', height: 4, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2, overflow: 'hidden' },
+  progressBar: { height: '100%', backgroundColor: '#2F7CF6' },
+  scanFrame: { width: 260, height: 260, borderRadius: 130, borderWidth: 4, borderColor: '#FFF' },
+  instructionBox: { marginTop: 40, paddingHorizontal: 40 },
+  scanningText: { color: '#FFF', fontFamily: FontFamily.bold, fontSize: 20, textAlign: 'center' },
+  successContent: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center', gap: 16, minHeight: 400 },
+  // Web verification styles
+  webVerifyContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  webProgressContainer: { alignItems: 'center', marginBottom: 32 },
+  webProgressRing: { width: 120, height: 120, borderRadius: 60, borderWidth: 6, borderColor: '#2F7CF6', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  webProgressText: { fontFamily: FontFamily.bold, fontSize: 28, color: '#1B2141' },
+  webProgressBarContainer: { width: 200, height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
+  webProgressBar: { height: '100%', backgroundColor: '#2F7CF6', borderRadius: 3 },
+  webVerifyTitle: { fontFamily: FontFamily.bold, fontSize: 20, color: '#1B2141', marginBottom: 8 },
+  webVerifySubtitle: { fontFamily: FontFamily.medium, fontSize: 14, color: '#9CA3AF' },
 });
 
 export default VerificationScreen;

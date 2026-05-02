@@ -1,4 +1,5 @@
 // Sovereign Ledger — Data Export Utility (CSV & PDF)
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
@@ -19,6 +20,18 @@ export const exportToCSV = async (transactions, currency) => {
   }).join('\n');
 
   const csvContent = header + rows;
+  
+  if (Platform.OS === 'web') {
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Sovereign_Ledger_Export_${dayjs().format('YYYYMMDD')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
   const fileName = `Sovereign_Ledger_Export_${dayjs().format('YYYYMMDD')}.csv`;
   const filePath = `${FileSystem.documentDirectory}${fileName}`;
 

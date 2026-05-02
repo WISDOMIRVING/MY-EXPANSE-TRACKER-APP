@@ -1,7 +1,6 @@
 // Sovereign Ledger — Global App Context with Reducer
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { Alert, Appearance, Platform } from 'react-native';
-import * as LocalAuthentication from 'expo-local-authentication';
 import {
   saveTransactions, loadTransactions,
   saveBudgets, loadBudgets,
@@ -14,6 +13,7 @@ import { processRecurringTransactions } from '../utils/recurring';
 import { LightTheme, DarkTheme } from '../theme/colors';
 import i18n from '../utils/i18n';
 import dayjs from 'dayjs';
+import { seedSampleData } from '../utils/seeder';
 
 // Lazy load notifications to avoid Expo Go SDK 53+ crash on Android
 let Notifications = null;
@@ -28,6 +28,14 @@ try {
   });
 } catch (e) {
   console.log('Notifications not available in this environment');
+}
+
+// Lazy load local authentication
+let LocalAuthentication = null;
+try {
+  LocalAuthentication = require('expo-local-authentication');
+} catch (e) {
+  console.log('Local Authentication not available');
 }
 
 const AppContext = createContext();
@@ -183,11 +191,21 @@ export function AppProvider({ children }) {
         loadTheme(),
       ]);
 
+      let finalTransactions = transactions || [];
+      let finalBudgets = budgets || [];
+
+      // Auto-seed if empty or less than 500 for demo purposes (forces a full data refresh)
+      if (finalTransactions.length < 500) {
+        const seed = seedSampleData();
+        finalTransactions = seed.transactions;
+        finalBudgets = seed.budgets;
+      }
+
       dispatch({
         type: ACTIONS.LOAD_ALL_DATA,
         payload: {
-          transactions: transactions || [],
-          budgets: budgets || [],
+          transactions: finalTransactions,
+          budgets: finalBudgets,
           currency: currency ? getCurrency(currency.code) : DEFAULT_CURRENCY,
           themeMode: themeMode || Appearance.getColorScheme() || 'light',
         },
@@ -207,6 +225,7 @@ export function AppProvider({ children }) {
   // Biometric Auth
   const authenticateBiometrically = async () => {
     try {
+      if (!LocalAuthentication) return false;
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -303,8 +322,21 @@ export function AppProvider({ children }) {
     ACTIONS,
     // Auth Helpers
     setVerified: (verified) => dispatch({ type: ACTIONS.SET_VERIFIED, payload: verified }),
+    setCurrency: (code) => dispatch({ type: ACTIONS.SET_CURRENCY, payload: getCurrency(code) }),
     authenticateBiometrically,
     toggleTheme: () => dispatch({ type: ACTIONS.SET_THEME, payload: state.themeMode === 'light' ? 'dark' : 'light' }),
+    seedData: () => {
+      const seed = seedSampleData();
+      dispatch({ 
+        type: ACTIONS.LOAD_ALL_DATA, 
+        payload: { 
+          ...state, 
+          transactions: seed.transactions, 
+          budgets: seed.budgets 
+        } 
+      });
+      Alert.alert('Success', 'Sample data seeded successfully');
+    },
     
     // Form Validation Helper
     validateTransaction: (transaction) => {

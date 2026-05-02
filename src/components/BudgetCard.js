@@ -5,144 +5,115 @@ import { Ionicons } from '@expo/vector-icons';
 import { FontFamily, FontSize } from '../theme/typography';
 import { Spacing, BorderRadius, Shadow } from '../theme/spacing';
 import { formatCurrency } from '../utils/currency';
-import { getCategoryIcon } from './CategoryIcon';
+import { getCategoryIcon, getCategoryBg, getCategoryColor } from './CategoryIcon';
 import { useAppContext } from '../context/AppContext';
 
-const BudgetCard = ({ budget, currency, onDelete }) => {
+const BudgetCard = ({ budget, currency, navigation }) => {
   const { colors } = useAppContext();
-  const { category, limit, spent, remaining, percentage } = budget;
+  const { category, limit, spent, percentage } = budget;
 
-  const isAtLimit = percentage >= 100;
-  const isWarning = percentage >= 80 && percentage < 100;
-  
-  const statusColor = isAtLimit ? colors.danger : isWarning ? colors.warning : colors.success;
-  const statusLabel = isAtLimit ? 'AT LIMIT' : isWarning ? 'WARNING' : 'HEALTHY';
+  const remainingPercent = 100 - percentage;
+  const isCritical = remainingPercent < 20; // Example logic for red
+  const isHealthy = percentage < 70; // Example logic for green
 
-  const categoryColor = colors[category.toLowerCase()] || colors.primary;
+  const statusColor = isCritical ? '#EF4444' : isHealthy ? '#10B981' : '#1B2141';
+  const statusLabel = isCritical ? `${Math.round(remainingPercent)}% left` : `${Math.round(percentage)}% spent`;
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <TouchableOpacity 
+      activeOpacity={0.7}
+      onPress={() => navigation.navigate('Ledger', { category })}
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
       <View style={styles.header}>
         <View style={styles.leftHeader}>
-          <View style={[styles.iconContainer, { backgroundColor: categoryColor + '15' }]}>
-            <Ionicons name={getCategoryIcon(category)} size={22} color={categoryColor} />
+          <View style={[styles.iconContainer, { backgroundColor: getCategoryBg(category) }]}>
+            <Ionicons name={getCategoryIcon(category)} size={20} color={getCategoryColor(category)} />
           </View>
           <View style={styles.titleSection}>
-            <Text style={[styles.categoryName, { color: colors.textPrimary }]}>{category}</Text>
+            <Text style={[styles.categoryName, { color: colors.secondary }]}>{category}</Text>
             <View style={styles.amountRow}>
-              <Text style={[styles.amount, { color: colors.textPrimary }]}>{formatCurrency(spent, currency)}</Text>
-              <Text style={[styles.limit, { color: colors.textMuted }]}> / {formatCurrency(limit, currency)}</Text>
+              <Text style={[styles.spentAmount, { color: colors.secondary }]}>
+                {formatCurrency(spent, currency)}
+              </Text>
+              <Text style={styles.statusLabel}> / {statusLabel}</Text>
             </View>
           </View>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusColor + '15' }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
 
       <View style={styles.progressSection}>
-        <View style={styles.progressTextRow}>
-          <Text style={[styles.progressPercent, { color: colors.textSecondary }]}>USED {Math.round(percentage)}%</Text>
-          <Text style={[styles.remainingText, { color: statusColor }]}>{formatCurrency(remaining, currency)} LEFT</Text>
-        </View>
-        <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-          <View style={[styles.progressFill, { width: `${Math.min(100, percentage)}%`, backgroundColor: statusColor }]} />
+        <View style={[styles.progressTrack, { backgroundColor: '#F3F4F6' }]}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { 
+                width: `${Math.min(100, percentage)}%`, 
+                backgroundColor: statusColor 
+              }
+            ]} 
+          />
         </View>
       </View>
-
-      <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-        <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
-      </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 16,
     borderWidth: 1,
     ...Shadow.small,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.xl,
+    marginBottom: 16,
   },
   leftHeader: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    alignItems: 'center',
+    gap: 16,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   titleSection: {
-    gap: 2,
+    flex: 1,
+    gap: 4,
   },
   categoryName: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.lg,
+    fontSize: 16,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
-  amount: {
+  spentAmount: {
     fontFamily: FontFamily.bold,
-    fontSize: FontSize.xl,
+    fontSize: 18,
   },
-  limit: {
+  statusLabel: {
     fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-  },
-  statusBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.round,
-  },
-  statusText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 10,
-    letterSpacing: 0.5,
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   progressSection: {
-    gap: Spacing.sm,
-  },
-  progressTextRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  progressPercent: {
-    fontFamily: FontFamily.bold,
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  remainingText: {
-    fontFamily: FontFamily.bold,
-    fontSize: 10,
-    letterSpacing: 0.5,
+    marginTop: 8,
   },
   progressTrack: {
-    height: 10,
-    borderRadius: 5,
+    height: 8,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 5,
-  },
-  deleteBtn: {
-    position: 'absolute',
-    bottom: Spacing.md,
-    right: Spacing.md,
-    padding: Spacing.xs,
+    borderRadius: 4,
   },
 });
 

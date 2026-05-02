@@ -1,113 +1,158 @@
-// Sovereign Ledger — Pixel Perfect Budget Screen
+// Sovereign Ledger — Cross-Platform Budget Screen
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FontFamily, FontSize } from '../theme/typography';
-import { Spacing, BorderRadius } from '../theme/spacing';
+import { FontFamily } from '../theme/typography';
 import { useAppContext } from '../context/AppContext';
 import BudgetCard from '../components/BudgetCard';
-
-const FILTER_TABS = [
-  { value: 'All', label: 'All' },
-  { value: 'Food', label: 'Food' },
-  { value: 'Travel', label: 'Travel' },
-  { value: 'Shop', label: 'Shop' },
-  { value: 'Home', label: 'Home' },
-];
+import TransactionItem from '../components/TransactionItem';
+import AnimatedScreen, { AnimatedItem } from '../components/animated/AnimatedScreen';
+import dayjs from 'dayjs';
+import useResponsiveLayout from '../hooks/useResponsiveLayout';
 
 const BudgetScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const { budgets, currency, colors, themeMode } = useAppContext();
-  const [activeFilter, setActiveFilter] = useState('All');
+  const { budgets, transactions, currency, colors, themeMode } = useAppContext();
+  const layout = useResponsiveLayout();
+  const [activeTab, setActiveTab] = useState('All');
+  
+  // Dynamically generate tabs based on the user's actual budget categories
+  const tabs = ['All', ...new Set(budgets.map(b => b.category))];
 
-  const filteredBudgets = activeFilter === 'All' 
-    ? (budgets || []) 
-    : (budgets || []).filter(b => b.category === activeFilter);
+  const filteredBudgets = budgets.filter(budget => 
+    activeTab === 'All' || budget.category.toLowerCase() === activeTab.toLowerCase()
+  );
 
-  const dynamicStyles = {
-    container: { backgroundColor: colors.background },
-    textPrimary: { color: colors.textPrimary },
-    textSecondary: { color: colors.textSecondary },
-    surface: { backgroundColor: colors.surface, borderColor: colors.border },
-  };
+  const tabTransactions = (transactions || [])
+    .filter(t => t.type === 'expense')
+    .filter(t => activeTab === 'All' || t.category.toLowerCase() === activeTab.toLowerCase())
+    .sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf())
+    .slice(0, 10); // Show recent history for the tab
 
   return (
-    <View style={[styles.container, dynamicStyles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
-      <View style={styles.header}>
-        <View style={styles.logoRow}>
-          <View style={[styles.gemIcon, { backgroundColor: colors.primaryFaded }]}>
-            <Ionicons name="diamond" size={16} color={colors.primary} />
-          </View>
-          <Text style={[styles.appName, dynamicStyles.textPrimary]}>Sovereign Ledger</Text>
-        </View>
-        <TouchableOpacity style={[styles.notifBtn, dynamicStyles.surface]}>
-          <Ionicons name="notifications-outline" size={22} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+    <AnimatedScreen animation="fadeSlideUp">
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: layout.isDesktopLayout ? 20 : insets.top }]}>
+        <StatusBar barStyle={themeMode === 'dark' ? 'light-content' : 'dark-content'} />
 
-      <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {FILTER_TABS.map((tab) => {
-            const isActive = activeFilter === tab.value;
-            return (
-              <TouchableOpacity key={tab.value} style={[styles.filterChip, isActive && { backgroundColor: colors.primaryFaded }]} onPress={() => setActiveFilter(tab.value)}>
-                <Text style={[styles.filterText, dynamicStyles.textSecondary, isActive && { color: colors.primary, fontFamily: FontFamily.bold }]}>{tab.label}</Text>
+        <View style={styles.header}>
+          {!layout.isDesktopLayout && (
+            <TouchableOpacity style={styles.backBtn} onPress={() => navigation?.goBack?.()}>
+              <Ionicons name="chevron-back" size={24} color={colors.secondary} />
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.title, { color: colors.secondary }]}>Allocation</Text>
+          <View style={{ width: layout.isDesktopLayout ? 0 : 44 }} />
+        </View>
+
+        <View style={styles.tabContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+            {tabs.map((tab, i) => (
+              <AnimatedItem key={tab} index={i}>
+                <TouchableOpacity
+                  onPress={() => setActiveTab(tab)}
+                  style={[styles.tab, activeTab === tab && { backgroundColor: colors.secondary }]}
+                  accessibilityRole="tab"
+                >
+                  <Text style={[styles.tabText, activeTab === tab ? { color: colors.background } : { color: colors.textSecondary }]}>{tab}</Text>
+                </TouchableOpacity>
+              </AnimatedItem>
+            ))}
+          </ScrollView>
+        </View>
+
+        <ScrollView 
+          showsVerticalScrollIndicator={false} 
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.scrollContent, 
+            { 
+              paddingHorizontal: layout.containerPadding,
+              maxWidth: layout.maxContentWidth || 1200,
+              width: '100%',
+              alignSelf: 'center'
+            }
+          ]}
+        >
+          <View style={styles.listContainer}>
+            {filteredBudgets.length > 0 ? (
+              filteredBudgets.map((budget, i) => (
+                <AnimatedItem key={budget.id} index={i}>
+                  <BudgetCard budget={budget} currency={currency} navigation={navigation} />
+                </AnimatedItem>
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="wallet-outline" size={64} color="#D1D5DB" />
+                <Text style={[styles.emptyTitle, { color: colors.secondary }]}>No Allocations</Text>
+                <Text style={styles.emptySubtitle}>Track your spending by setting up allocations.</Text>
+              </View>
+            )}
+
+            <AnimatedItem index={budgets.length + 1}>
+              <TouchableOpacity
+                style={[styles.newAllocationCard, { backgroundColor: colors.surface }]}
+                onPress={() => navigation?.navigate?.('AddTransaction')}
+                accessibilityRole="button"
+                accessibilityLabel="Create new allocation"
+              >
+                <View style={styles.newIconContainer}>
+                  <Ionicons name="add" size={24} color={colors.secondary} />
+                </View>
+                <Text style={[styles.newAllocationText, { color: colors.secondary }]}>New Allocation</Text>
               </TouchableOpacity>
-            );
-          })}
+            </AnimatedItem>
+
+            {/* Display Category History directly on the budget page */}
+            {tabTransactions.length > 0 && (
+              <AnimatedItem index={budgets.length + 2}>
+                <View style={styles.historySection}>
+                  <Text style={[styles.historyTitle, { color: colors.secondary }]}>
+                    {activeTab === 'All' ? 'Recent Expenses' : `${activeTab} History`}
+                  </Text>
+                  <View style={[styles.historyCard, { backgroundColor: colors.surface, borderColor: themeMode === 'dark' ? colors.border : '#F3F4F6' }]}>
+                    {tabTransactions.map((t, idx) => (
+                      <View key={t.id}>
+                        <TransactionItem transaction={t} currency={currency} />
+                        {idx < tabTransactions.length - 1 && <View style={[styles.divider, { backgroundColor: colors.border }]} />}
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </AnimatedItem>
+            )}
+          </View>
         </ScrollView>
       </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.listContainer}>
-        {filteredBudgets.length > 0 ? (
-          filteredBudgets.map((budget) => (
-            <BudgetCard key={budget.id} budget={budget} currency={currency} />
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="wallet-outline" size={48} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, dynamicStyles.textSecondary]}>No Budgets Found</Text>
-            <Text style={[styles.emptySubtitle, dynamicStyles.textMuted]}>Add a new allocation to get started</Text>
-          </View>
-        )}
-
-        <TouchableOpacity style={[styles.newAllocationBtn, dynamicStyles.surface]} onPress={() => navigation.navigate('AddTransaction')}>
-          <View style={[styles.newAllocationIcon, { backgroundColor: colors.primaryFaded }]}>
-            <Ionicons name="add-circle" size={24} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={[styles.newAllocationTitle, dynamicStyles.textPrimary]}>New Allocation</Text>
-            <Text style={[styles.newAllocationSubtitle, dynamicStyles.textSecondary]}>Record a new allocation</Text>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
+    </AnimatedScreen>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  gemIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  appName: { fontFamily: FontFamily.bold, fontSize: FontSize.lg },
-  notifBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
-  tabContainer: { marginBottom: Spacing.lg },
-  filterScroll: { paddingHorizontal: Spacing.xl, gap: Spacing.md },
-  filterChip: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.sm, borderRadius: 8 },
-  filterText: { fontFamily: FontFamily.medium, fontSize: 13 },
-  listContainer: { paddingHorizontal: Spacing.xl, paddingBottom: 120 },
-  emptyContainer: { alignItems: 'center', paddingVertical: Spacing.massive, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.semiBold, fontSize: FontSize.xl },
-  emptySubtitle: { fontFamily: FontFamily.regular, fontSize: FontSize.md },
-  newAllocationBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderRadius: BorderRadius.xl, padding: Spacing.lg, borderWidth: 1, marginTop: Spacing.lg },
-  newAllocationIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  newAllocationTitle: { fontFamily: FontFamily.bold, fontSize: FontSize.md },
-  newAllocationSubtitle: { fontFamily: FontFamily.regular, fontSize: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 },
+  backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  title: { fontFamily: FontFamily.bold, fontSize: 18 },
+  tabContainer: { paddingVertical: 12 },
+  tabScroll: { paddingHorizontal: 24, gap: 12 },
+  tab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F3F4F6' },
+  tabText: { fontFamily: FontFamily.bold, fontSize: 13 },
+  scrollContent: { paddingBottom: 100 },
+  listContainer: {},
+  emptyContainer: { alignItems: 'center', paddingVertical: 80, gap: 8 },
+  emptyTitle: { fontFamily: FontFamily.bold, fontSize: 18, marginTop: 16 },
+  emptySubtitle: { fontFamily: FontFamily.regular, fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
+  newAllocationCard: {
+    borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', marginTop: 12, gap: 12,
+  },
+  newIconContainer: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  newAllocationText: { fontFamily: FontFamily.bold, fontSize: 16 },
+  historySection: { marginTop: 32, marginBottom: 20 },
+  historyTitle: { fontFamily: FontFamily.bold, fontSize: 18, marginBottom: 12 },
+  historyCard: { borderRadius: 24, paddingVertical: 12, borderWidth: 1, overflow: 'hidden' },
+  divider: { height: 1, marginHorizontal: 24 },
 });
 
 export default BudgetScreen;
