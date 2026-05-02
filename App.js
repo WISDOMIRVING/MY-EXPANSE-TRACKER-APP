@@ -44,12 +44,24 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
     * { -webkit-tap-highlight-color: transparent; }
-    body { margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-    #root { display: flex; flex-direction: column; min-height: 100vh; }
-    ::-webkit-scrollbar { width: 6px; }
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+      overflow: auto !important;
+      height: auto !important;
+      min-height: 100vh;
+    }
+    #root { 
+      display: flex; 
+      flex-direction: column; 
+      min-height: 100vh !important; 
+      height: auto !important;
+    }
+    ::-webkit-scrollbar { width: 8px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
     input:focus, textarea:focus { outline: none; }
   `;
   document.head.appendChild(style);
